@@ -58,9 +58,7 @@
             <dict-tag :options="biz_account_platform" :value="scope.row.accountPlatform"/>
           </template>
         </el-table-column>
-        <el-table-column label="账号类型" align="center" prop="accountType" />
         <el-table-column label="账号主页链接" align="center" prop="accountUrl" />
-        <el-table-column label="粉丝数" align="center" prop="followerCount" />
         <el-table-column label="状态" align="center" prop="status">
           <template #default="scope">
             <dict-tag :options="sys_normal_disable" :value="scope.row.status"/>
@@ -103,31 +101,28 @@
         <el-form-item label="平台" prop="accountPlatform">
           <el-select v-model="form.accountPlatform" placeholder="请选择平台">
             <el-option
-                v-for="dict in biz_account_platform"
-                :key="dict.value"
-                :label="dict.label"
-                :value="parseInt(dict.value)"
+              v-for="dict in biz_account_platform"
+              :key="dict.value"
+              :label="dict.label"
+              :value="parseInt(dict.value)"
             ></el-option>
           </el-select>
         </el-form-item>
         <el-form-item label="账号主页链接" prop="accountUrl">
-            <el-input v-model="form.accountUrl" type="textarea" placeholder="请输入内容" />
-        </el-form-item>
-        <el-form-item label="粉丝数" prop="followerCount">
-          <el-input v-model="form.followerCount" placeholder="请输入粉丝数" />
+          <el-input v-model="form.accountUrl" type="textarea" placeholder="请输入内容" />
         </el-form-item>
         <el-form-item label="状态" prop="status">
           <el-select v-model="form.status" placeholder="请选择状态">
             <el-option
-                v-for="dict in sys_normal_disable"
-                :key="dict.value"
-                :label="dict.label"
-                :value="parseInt(dict.value)"
+              v-for="dict in sys_normal_disable"
+              :key="dict.value"
+              :label="dict.label"
+              :value="parseInt(dict.value)"
             ></el-option>
           </el-select>
         </el-form-item>
         <el-form-item label="描述" prop="remark">
-            <el-input v-model="form.remark" type="textarea" placeholder="请输入内容" />
+          <el-input v-model="form.remark" type="textarea" placeholder="请输入内容" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -169,9 +164,7 @@ const initFormData: MediaAccountForm = {
   accountId: undefined,
   accountName: undefined,
   accountPlatform: undefined,
-  accountType: undefined,
   accountUrl: undefined,
-  followerCount: undefined,
   status: undefined,
   remark: undefined,
 }
@@ -183,7 +176,6 @@ const data = reactive<PageData<MediaAccountForm, MediaAccountQuery>>({
     accountId: undefined,
     accountName: undefined,
     accountPlatform: undefined,
-    accountType: undefined,
     status: undefined,
     params: {
     }
