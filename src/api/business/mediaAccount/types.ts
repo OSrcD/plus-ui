@@ -1,6 +1,6 @@
 export interface MediaAccountVO {
   /**
-   * 账号编号
+   * 自媒体账号ID
    */
   id: string | number;
 
@@ -15,12 +15,12 @@ export interface MediaAccountVO {
   accountName: string;
 
   /**
-   * 平台
+   * 平台（0小红书 1抖音 2快手 3闲鱼 4视频号 5B站 6其他）
    */
   accountPlatform: number;
 
   /**
-   * 账号类型
+   * 账号类型（0个人 1企业 2机构 3其他）
    */
   accountType: number;
 
@@ -30,35 +30,30 @@ export interface MediaAccountVO {
   accountUrl: string;
 
   /**
+   * 手机号码
+   */
+  phoneNumber: string;
+
+  /**
    * 粉丝数
    */
   followerCount: number;
 
   /**
-   * 状态
+   * 状态（0停用 1启用 2封禁）
    */
   status: number;
 
   /**
-   * 描述
+   * 账号描述
    */
   remark: string;
-
-  /**
-   * 创建时间
-   */
-  createTime: string;
-
-  /**
-   * 更新时间
-   */
-  updateTime: string;
 
 }
 
 export interface MediaAccountForm extends BaseEntity {
   /**
-   * 账号编号
+   * 自媒体账号ID
    */
   id?: string | number;
 
@@ -73,12 +68,12 @@ export interface MediaAccountForm extends BaseEntity {
   accountName?: string;
 
   /**
-   * 平台
+   * 平台（0小红书 1抖音 2快手 3闲鱼 4视频号 5B站 6其他）
    */
   accountPlatform?: number;
 
   /**
-   * 账号类型
+   * 账号类型（0个人 1企业 2机构 3其他）
    */
   accountType?: number;
 
@@ -88,17 +83,22 @@ export interface MediaAccountForm extends BaseEntity {
   accountUrl?: string;
 
   /**
+   * 手机号码
+   */
+  phoneNumber?: string;
+
+  /**
    * 粉丝数
    */
   followerCount?: number;
 
   /**
-   * 状态
+   * 状态（0停用 1启用 2封禁）
    */
   status?: number;
 
   /**
-   * 描述
+   * 账号描述
    */
   remark?: string;
 
@@ -117,17 +117,32 @@ export interface MediaAccountQuery extends PageQuery {
   accountName?: string;
 
   /**
-   * 平台
+   * 平台（0小红书 1抖音 2快手 3闲鱼 4视频号 5B站 6其他）
    */
   accountPlatform?: number;
 
   /**
-   * 账号类型
+   * 账号类型（0个人 1企业 2机构 3其他）
    */
   accountType?: number;
 
   /**
-   * 状态
+   * 账号主页链接
+   */
+  accountUrl?: string;
+
+  /**
+   * 手机号码
+   */
+  phoneNumber?: string;
+
+  /**
+   * 粉丝数
+   */
+  followerCount?: number;
+
+  /**
+   * 状态（0停用 1启用 2封禁）
    */
   status?: number;
 

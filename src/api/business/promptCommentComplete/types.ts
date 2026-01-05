@@ -19,6 +19,11 @@ export interface PromptCommentCompleteVO {
    */
   remark: string;
 
+  /**
+   * 创建时间
+   */
+  createTime: string;
+
 }
 
 export interface PromptCommentCompleteForm extends BaseEntity {

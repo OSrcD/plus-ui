@@ -15,6 +15,15 @@
                 <el-option v-for="dict in biz_account_platform" :key="dict.value" :label="dict.label" :value="dict.value"/>
               </el-select>
             </el-form-item>
+            <el-form-item label="账号主页链接" prop="accountUrl">
+              <el-input v-model="queryParams.accountUrl" placeholder="请输入账号主页链接" clearable @keyup.enter="handleQuery" />
+            </el-form-item>
+            <el-form-item label="手机号码" prop="phoneNumber">
+              <el-input v-model="queryParams.phoneNumber" placeholder="请输入手机号码" clearable @keyup.enter="handleQuery" />
+            </el-form-item>
+            <el-form-item label="粉丝数" prop="followerCount">
+              <el-input v-model="queryParams.followerCount" placeholder="请输入粉丝数" clearable @keyup.enter="handleQuery" />
+            </el-form-item>
             <el-form-item label="状态" prop="status">
               <el-select v-model="queryParams.status" placeholder="请选择状态" clearable >
                 <el-option v-for="dict in sys_normal_disable" :key="dict.value" :label="dict.label" :value="dict.value"/>
@@ -50,7 +59,7 @@
 
       <el-table v-loading="loading" border :data="mediaAccountList" @selection-change="handleSelectionChange">
         <el-table-column type="selection" width="55" align="center" />
-        <el-table-column label="账号编号" align="center" prop="id" v-if="true" />
+        <el-table-column label="自媒体账号ID" align="center" prop="id" v-if="true" />
         <el-table-column label="账号ID" align="center" prop="accountId" />
         <el-table-column label="账号名称" align="center" prop="accountName" />
         <el-table-column label="平台" align="center" prop="accountPlatform">
@@ -58,23 +67,16 @@
             <dict-tag :options="biz_account_platform" :value="scope.row.accountPlatform"/>
           </template>
         </el-table-column>
+        <el-table-column label="账号类型" align="center" prop="accountType" />
         <el-table-column label="账号主页链接" align="center" prop="accountUrl" />
+        <el-table-column label="手机号码" align="center" prop="phoneNumber" />
+        <el-table-column label="粉丝数" align="center" prop="followerCount" />
         <el-table-column label="状态" align="center" prop="status">
           <template #default="scope">
             <dict-tag :options="sys_normal_disable" :value="scope.row.status"/>
           </template>
         </el-table-column>
-        <el-table-column label="描述" align="center" prop="remark" />
-        <el-table-column label="创建时间" align="center" prop="createTime" width="180">
-          <template #default="scope">
-            <span>{{ parseTime(scope.row.createTime)}}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="更新时间" align="center" prop="updateTime" width="180">
-          <template #default="scope">
-            <span>{{ parseTime(scope.row.updateTime) }}</span>
-          </template>
-        </el-table-column>
+        <el-table-column label="账号描述" align="center" prop="remark" />
         <el-table-column label="操作" align="center" fixed="right"  class-name="small-padding fixed-width">
           <template #default="scope">
             <el-tooltip content="修改" placement="top">
@@ -111,6 +113,12 @@
         <el-form-item label="账号主页链接" prop="accountUrl">
           <el-input v-model="form.accountUrl" type="textarea" placeholder="请输入内容" />
         </el-form-item>
+        <el-form-item label="手机号码" prop="phoneNumber">
+          <el-input v-model="form.phoneNumber" placeholder="请输入手机号码" />
+        </el-form-item>
+        <el-form-item label="粉丝数" prop="followerCount">
+          <el-input v-model="form.followerCount" placeholder="请输入粉丝数" />
+        </el-form-item>
         <el-form-item label="状态" prop="status">
           <el-select v-model="form.status" placeholder="请选择状态">
             <el-option
@@ -121,7 +129,7 @@
             ></el-option>
           </el-select>
         </el-form-item>
-        <el-form-item label="描述" prop="remark">
+        <el-form-item label="账号描述" prop="remark">
           <el-input v-model="form.remark" type="textarea" placeholder="请输入内容" />
         </el-form-item>
       </el-form>
@@ -164,7 +172,10 @@ const initFormData: MediaAccountForm = {
   accountId: undefined,
   accountName: undefined,
   accountPlatform: undefined,
+  accountType: undefined,
   accountUrl: undefined,
+  phoneNumber: undefined,
+  followerCount: undefined,
   status: undefined,
   remark: undefined,
 }
@@ -176,13 +187,17 @@ const data = reactive<PageData<MediaAccountForm, MediaAccountQuery>>({
     accountId: undefined,
     accountName: undefined,
     accountPlatform: undefined,
+    accountType: undefined,
+    accountUrl: undefined,
+    phoneNumber: undefined,
+    followerCount: undefined,
     status: undefined,
     params: {
     }
   },
   rules: {
     id: [
-      { required: true, message: "账号编号不能为空", trigger: "blur" }
+      { required: true, message: "自媒体账号ID不能为空", trigger: "blur" }
     ],
     accountId: [
       { required: true, message: "账号ID不能为空", trigger: "blur" }

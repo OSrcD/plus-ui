@@ -44,6 +44,11 @@
         <el-table-column label="提示词模板编号" align="center" prop="promptId" />
         <el-table-column label="提示词评论内容" align="center" prop="commentContent" />
         <el-table-column label="备注" align="center" prop="remark" />
+        <el-table-column label="创建时间" align="center" prop="createTime" width="180">
+          <template #default="scope">
+            <span>{{ parseTime(scope.row.createTime) }}</span>
+          </template>
+        </el-table-column>
         <el-table-column label="操作" align="center" fixed="right"  class-name="small-padding fixed-width">
           <template #default="scope">
             <el-tooltip content="修改" placement="top">
