@@ -4,8 +4,11 @@
       <div v-show="showSearch" class="mb-[10px]">
         <el-card shadow="hover">
           <el-form ref="queryFormRef" :model="queryParams" :inline="true">
-            <el-form-item label="提示词模板编号" prop="promptId">
-              <el-input v-model="queryParams.promptId" placeholder="请输入提示词模板编号" clearable @keyup.enter="handleQuery" />
+            <el-form-item label="提示词模板ID" prop="promptId">
+              <el-input v-model="queryParams.promptId" placeholder="请输入提示词模板ID" clearable @keyup.enter="handleQuery" />
+            </el-form-item>
+            <el-form-item label="标题" prop="title">
+              <el-input v-model="queryParams.title" placeholder="请输入标题" clearable @keyup.enter="handleQuery" />
             </el-form-item>
             <el-form-item label="提示词评论内容" prop="commentContent">
               <el-input v-model="queryParams.commentContent" placeholder="请输入提示词评论内容" clearable @keyup.enter="handleQuery" />
@@ -40,15 +43,11 @@
 
       <el-table v-loading="loading" border :data="promptCommentList" @selection-change="handleSelectionChange">
         <el-table-column type="selection" width="55" align="center" />
-        <el-table-column label="提示词评论编号" align="center" prop="commentId" v-if="true" />
-        <el-table-column label="提示词模板编号" align="center" prop="promptId" />
+        <el-table-column label="提示词评论ID" align="center" prop="commentId" v-if="true" />
+        <el-table-column label="提示词模板ID" align="center" prop="promptId" />
+        <el-table-column label="标题" align="center" prop="title" />
         <el-table-column label="提示词评论内容" align="center" prop="commentContent" />
         <el-table-column label="备注" align="center" prop="remark" />
-        <el-table-column label="创建时间" align="center" prop="createTime" width="180">
-          <template #default="scope">
-            <span>{{ parseTime(scope.row.createTime) }}</span>
-          </template>
-        </el-table-column>
         <el-table-column label="操作" align="center" fixed="right"  class-name="small-padding fixed-width">
           <template #default="scope">
             <el-tooltip content="修改" placement="top">
@@ -66,11 +65,14 @@
     <!-- 添加或修改提示词评论对话框 -->
     <el-dialog :title="dialog.title" v-model="dialog.visible" width="500px" append-to-body>
       <el-form ref="promptCommentFormRef" :model="form" :rules="rules" label-width="80px">
-        <el-form-item label="提示词模板编号" prop="promptId">
-          <el-input v-model="form.promptId" placeholder="请输入提示词模板编号" />
+        <el-form-item label="提示词模板ID" prop="promptId">
+          <el-input v-model="form.promptId" placeholder="请输入提示词模板ID" />
+        </el-form-item>
+        <el-form-item label="标题" prop="title">
+          <el-input v-model="form.title" placeholder="请输入标题" />
         </el-form-item>
         <el-form-item label="提示词评论内容" prop="commentContent">
-            <el-input v-model="form.commentContent" type="textarea" placeholder="请输入内容" />
+          <el-input v-model="form.commentContent" type="textarea" placeholder="请输入内容" />
         </el-form-item>
         <el-form-item label="备注" prop="remark">
           <el-input v-model="form.remark" placeholder="请输入备注" />
@@ -112,6 +114,7 @@ const dialog = reactive<DialogOption>({
 const initFormData: PromptCommentForm = {
   commentId: undefined,
   promptId: undefined,
+  title: undefined,
   commentContent: undefined,
   remark: undefined,
 }
@@ -121,16 +124,17 @@ const data = reactive<PageData<PromptCommentForm, PromptCommentQuery>>({
     pageNum: 1,
     pageSize: 10,
     promptId: undefined,
+    title: undefined,
     commentContent: undefined,
     params: {
     }
   },
   rules: {
     commentId: [
-      { required: true, message: "提示词评论编号不能为空", trigger: "blur" }
+      { required: true, message: "提示词评论ID不能为空", trigger: "blur" }
     ],
     promptId: [
-      { required: true, message: "提示词模板编号不能为空", trigger: "blur" }
+      { required: true, message: "提示词模板ID不能为空", trigger: "blur" }
     ],
     commentContent: [
       { required: true, message: "提示词评论内容不能为空", trigger: "blur" }

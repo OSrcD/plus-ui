@@ -1,6 +1,6 @@
 export interface PromptTemplateVO {
   /**
-   * 提示词编号
+   * 提示词ID
    */
   promptId: string | number;
 
@@ -10,30 +10,25 @@ export interface PromptTemplateVO {
   template: string;
 
   /**
-   * 提示词分类
+   * 提示词分类（0棋牌 1对象）
    */
   templateType: number;
+
+  /**
+   * 状态（0停用 1启用 2封禁）
+   */
+  status: number;
 
   /**
    * 备注
    */
   remark: string;
 
-  /**
-   * 创建时间
-   */
-  createTime: string;
-
-  /**
-   * 更新时间
-   */
-  updateTime: string;
-
 }
 
 export interface PromptTemplateForm extends BaseEntity {
   /**
-   * 提示词编号
+   * 提示词ID
    */
   promptId?: string | number;
 
@@ -43,9 +38,14 @@ export interface PromptTemplateForm extends BaseEntity {
   template?: string;
 
   /**
-   * 提示词分类
+   * 提示词分类（0棋牌 1对象）
    */
   templateType?: number;
+
+  /**
+   * 状态（0停用 1启用 2封禁）
+   */
+  status?: number;
 
   /**
    * 备注
@@ -57,9 +57,19 @@ export interface PromptTemplateForm extends BaseEntity {
 export interface PromptTemplateQuery extends PageQuery {
 
   /**
-   * 提示词分类
+   * 提示词模板
+   */
+  template?: string;
+
+  /**
+   * 提示词分类（0棋牌 1对象）
    */
   templateType?: number;
+
+  /**
+   * 状态（0停用 1启用 2封禁）
+   */
+  status?: number;
 
   /**
    * 日期范围参数

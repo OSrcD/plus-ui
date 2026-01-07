@@ -4,9 +4,17 @@
       <div v-show="showSearch" class="mb-[10px]">
         <el-card shadow="hover">
           <el-form ref="queryFormRef" :model="queryParams" :inline="true">
+            <el-form-item label="提示词模板" prop="template">
+              <el-input v-model="queryParams.template" placeholder="请输入提示词模板" clearable @keyup.enter="handleQuery" />
+            </el-form-item>
             <el-form-item label="提示词分类" prop="templateType">
               <el-select v-model="queryParams.templateType" placeholder="请选择提示词分类" clearable >
                 <el-option v-for="dict in biz_prompt_template_type" :key="dict.value" :label="dict.label" :value="dict.value"/>
+              </el-select>
+            </el-form-item>
+            <el-form-item label="状态" prop="status">
+              <el-select v-model="queryParams.status" placeholder="请选择状态" clearable >
+                <el-option v-for="dict in sys_normal_disable" :key="dict.value" :label="dict.label" :value="dict.value"/>
               </el-select>
             </el-form-item>
             <el-form-item>
@@ -39,22 +47,22 @@
 
       <el-table v-loading="loading" border :data="promptTemplateList" @selection-change="handleSelectionChange">
         <el-table-column type="selection" width="55" align="center" />
-        <el-table-column label="提示词编号" align="center" prop="promptId" v-if="true" />
+        <el-table-column label="提示词ID" align="center" prop="promptId" v-if="true" />
         <el-table-column label="提示词模板" align="center" prop="template" />
         <el-table-column label="提示词分类" align="center" prop="templateType">
           <template #default="scope">
             <dict-tag :options="biz_prompt_template_type" :value="scope.row.templateType"/>
           </template>
         </el-table-column>
+        <el-table-column label="状态" align="center" prop="status">
+          <template #default="scope">
+            <dict-tag :options="sys_normal_disable" :value="scope.row.status"/>
+          </template>
+        </el-table-column>
         <el-table-column label="备注" align="center" prop="remark" />
         <el-table-column label="创建时间" align="center" prop="createTime" width="180">
           <template #default="scope">
             <span>{{ parseTime(scope.row.createTime, '{y}-{m}-{d}') }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="更新时间" align="center" prop="updateTime" width="180">
-          <template #default="scope">
-            <span>{{ parseTime(scope.row.updateTime, '{y}-{m}-{d}') }}</span>
           </template>
         </el-table-column>
         <el-table-column label="操作" align="center" fixed="right"  class-name="small-padding fixed-width">
@@ -75,15 +83,25 @@
     <el-dialog :title="dialog.title" v-model="dialog.visible" width="500px" append-to-body>
       <el-form ref="promptTemplateFormRef" :model="form" :rules="rules" label-width="80px">
         <el-form-item label="提示词模板" prop="template">
-            <el-input v-model="form.template" type="textarea" placeholder="请输入内容" />
+          <el-input v-model="form.template" type="textarea" placeholder="请输入内容" />
         </el-form-item>
         <el-form-item label="提示词分类" prop="templateType">
           <el-select v-model="form.templateType" placeholder="请选择提示词分类">
             <el-option
-                v-for="dict in biz_prompt_template_type"
-                :key="dict.value"
-                :label="dict.label"
-                :value="parseInt(dict.value)"
+              v-for="dict in biz_prompt_template_type"
+              :key="dict.value"
+              :label="dict.label"
+              :value="parseInt(dict.value)"
+            ></el-option>
+          </el-select>
+        </el-form-item>
+        <el-form-item label="状态" prop="status">
+          <el-select v-model="form.status" placeholder="请选择状态">
+            <el-option
+              v-for="dict in sys_normal_disable"
+              :key="dict.value"
+              :label="dict.label"
+              :value="parseInt(dict.value)"
             ></el-option>
           </el-select>
         </el-form-item>
@@ -106,7 +124,7 @@ import { listPromptTemplate, getPromptTemplate, delPromptTemplate, addPromptTemp
 import { PromptTemplateVO, PromptTemplateQuery, PromptTemplateForm } from '@/api/business/promptTemplate/types';
 
 const { proxy } = getCurrentInstance() as ComponentInternalInstance;
-const { biz_prompt_template_type } = toRefs<any>(proxy?.useDict('biz_prompt_template_type'));
+const { biz_prompt_template_type, sys_normal_disable } = toRefs<any>(proxy?.useDict('biz_prompt_template_type', 'sys_normal_disable'));
 
 const promptTemplateList = ref<PromptTemplateVO[]>([]);
 const buttonLoading = ref(false);
@@ -129,6 +147,7 @@ const initFormData: PromptTemplateForm = {
   promptId: undefined,
   template: undefined,
   templateType: undefined,
+  status: undefined,
   remark: undefined,
 }
 const data = reactive<PageData<PromptTemplateForm, PromptTemplateQuery>>({
@@ -136,13 +155,15 @@ const data = reactive<PageData<PromptTemplateForm, PromptTemplateQuery>>({
   queryParams: {
     pageNum: 1,
     pageSize: 10,
+    template: undefined,
     templateType: undefined,
+    status: undefined,
     params: {
     }
   },
   rules: {
     promptId: [
-      { required: true, message: "提示词编号不能为空", trigger: "blur" }
+      { required: true, message: "提示词ID不能为空", trigger: "blur" }
     ],
     template: [
       { required: true, message: "提示词模板不能为空", trigger: "blur" }
