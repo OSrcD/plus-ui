@@ -7,6 +7,9 @@
             <el-form-item label="提示词模板ID" prop="promptId">
               <el-input v-model="queryParams.promptId" placeholder="请输入提示词模板ID" clearable @keyup.enter="handleQuery" />
             </el-form-item>
+            <el-form-item label="操作分组ID" prop="operateGroupId">
+              <el-input v-model="queryParams.operateGroupId" placeholder="请输入操作分组ID" clearable @keyup.enter="handleQuery" />
+            </el-form-item>
             <el-form-item label="标题" prop="title">
               <el-input v-model="queryParams.title" placeholder="请输入标题" clearable @keyup.enter="handleQuery" />
             </el-form-item>
@@ -45,9 +48,15 @@
         <el-table-column type="selection" width="55" align="center" />
         <el-table-column label="提示词评论ID" align="center" prop="commentId" v-if="true" />
         <el-table-column label="提示词模板ID" align="center" prop="promptId" />
+        <el-table-column label="操作分组ID" align="center" prop="operateGroupId" />
         <el-table-column label="标题" align="center" prop="title" />
         <el-table-column label="提示词评论内容" align="center" prop="commentContent" />
         <el-table-column label="备注" align="center" prop="remark" />
+        <el-table-column label="创建时间" align="center" prop="createTime" width="180">
+          <template #default="scope">
+            <span>{{ parseTime(scope.row.createTime, '{y}-{m}-{d}') }}</span>
+          </template>
+        </el-table-column>
         <el-table-column label="操作" align="center" fixed="right"  class-name="small-padding fixed-width">
           <template #default="scope">
             <el-tooltip content="修改" placement="top">
@@ -67,6 +76,9 @@
       <el-form ref="promptCommentFormRef" :model="form" :rules="rules" label-width="80px">
         <el-form-item label="提示词模板ID" prop="promptId">
           <el-input v-model="form.promptId" placeholder="请输入提示词模板ID" />
+        </el-form-item>
+        <el-form-item label="操作分组ID" prop="operateGroupId">
+          <el-input v-model="form.operateGroupId" placeholder="请输入操作分组ID" />
         </el-form-item>
         <el-form-item label="标题" prop="title">
           <el-input v-model="form.title" placeholder="请输入标题" />
@@ -114,6 +126,7 @@ const dialog = reactive<DialogOption>({
 const initFormData: PromptCommentForm = {
   commentId: undefined,
   promptId: undefined,
+  operateGroupId: undefined,
   title: undefined,
   commentContent: undefined,
   remark: undefined,
@@ -124,6 +137,7 @@ const data = reactive<PageData<PromptCommentForm, PromptCommentQuery>>({
     pageNum: 1,
     pageSize: 10,
     promptId: undefined,
+    operateGroupId: undefined,
     title: undefined,
     commentContent: undefined,
     params: {

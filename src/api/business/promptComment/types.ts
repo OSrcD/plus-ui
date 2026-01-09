@@ -10,6 +10,11 @@ export interface PromptCommentVO {
   promptId: string | number;
 
   /**
+   * 操作分组ID
+   */
+  operateGroupId: string | number;
+
+  /**
    * 标题
    */
   title: string;
@@ -24,6 +29,11 @@ export interface PromptCommentVO {
    */
   remark: string;
 
+  /**
+   * 创建时间
+   */
+  createTime: string;
+
 }
 
 export interface PromptCommentForm extends BaseEntity {
@@ -36,6 +46,11 @@ export interface PromptCommentForm extends BaseEntity {
    * 提示词模板ID
    */
   promptId?: string | number;
+
+  /**
+   * 操作分组ID
+   */
+  operateGroupId?: string | number;
 
   /**
    * 标题
@@ -60,6 +75,11 @@ export interface PromptCommentQuery extends PageQuery {
    * 提示词模板ID
    */
   promptId?: string | number;
+
+  /**
+   * 操作分组ID
+   */
+  operateGroupId?: string | number;
 
   /**
    * 标题
