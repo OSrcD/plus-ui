@@ -30,9 +30,24 @@ export interface PromptCommentVO {
   remark: string;
 
   /**
+   * 小红书吞评次数
+   */
+  xhsInterceptCount: number;
+
+  /**
+   * 小红书非吞评次数
+   */
+  xhsNormalCount: number;
+
+  /**
    * 创建时间
    */
   createTime: string;
+
+  /**
+   * 更新时间
+   */
+  updateTime: string;
 
 }
 
@@ -67,6 +82,15 @@ export interface PromptCommentForm extends BaseEntity {
    */
   remark?: string;
 
+  /**
+   * 小红书吞评次数
+   */
+  xhsInterceptCount?: number;
+
+  /**
+   * 小红书非吞评次数
+   */
+  xhsNormalCount?: number;
 }
 
 export interface PromptCommentQuery extends PageQuery {
@@ -90,6 +114,16 @@ export interface PromptCommentQuery extends PageQuery {
    * 提示词评论内容
    */
   commentContent?: string;
+
+  /**
+   * 小红书吞评次数
+   */
+  xhsInterceptCount?: number;
+
+  /**
+   * 小红书非吞评次数
+   */
+  xhsNormalCount?: number;
 
   /**
    * 日期范围参数

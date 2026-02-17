@@ -10,6 +10,21 @@
             <el-form-item label="自媒体账号编号" prop="mediaAccountId">
               <el-input v-model="queryParams.mediaAccountId" placeholder="请输入自媒体账号编号" clearable @keyup.enter="handleQuery" />
             </el-form-item>
+            <el-form-item label="小红书笔记信息" prop="xhsNoteInfo">
+              <el-input v-model="queryParams.xhsNoteInfo" placeholder="请输入小红书笔记信息" clearable @keyup.enter="handleQuery" />
+            </el-form-item>
+            <el-form-item label="检查状态" prop="checkStatus">
+              <el-select v-model="queryParams.checkStatus" placeholder="请选择检查状态" clearable>
+                <el-option label="未检查" :value="0" />
+                <el-option label="已检查" :value="1" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="评论状态" prop="commentStatus">
+              <el-select v-model="queryParams.commentStatus" placeholder="请选择评论状态" clearable>
+                <el-option label="正常" :value="0" />
+                <el-option label="吞评" :value="1" />
+              </el-select>
+            </el-form-item>
             <el-form-item>
               <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
               <el-button icon="Refresh" @click="resetQuery">重置</el-button>
@@ -43,6 +58,19 @@
         <el-table-column label="已评论编号" align="center" prop="commentCompleteId" v-if="true" />
         <el-table-column label="评论编号" align="center" prop="commentId" />
         <el-table-column label="自媒体账号编号" align="center" prop="mediaAccountId" />
+        <el-table-column label="小红书笔记信息" align="center" prop="xhsNoteInfo" show-overflow-tooltip />
+        <el-table-column label="检查状态" align="center" prop="checkStatus">
+          <template #default="scope">
+            <el-tag v-if="scope.row.checkStatus === 0" type="info">未检查</el-tag>
+            <el-tag v-else-if="scope.row.checkStatus === 1" type="success">已检查</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="评论状态" align="center" prop="commentStatus">
+          <template #default="scope">
+            <el-tag v-if="scope.row.commentStatus === 0" type="success">正常</el-tag>
+            <el-tag v-else-if="scope.row.commentStatus === 1" type="danger">吞评</el-tag>
+          </template>
+        </el-table-column>
         <el-table-column label="备注" align="center" prop="remark" />
         <el-table-column label="创建时间" align="center" prop="createTime" width="180">
           <template #default="scope">
@@ -72,8 +100,23 @@
         <el-form-item label="自媒体账号编号" prop="mediaAccountId">
           <el-input v-model="form.mediaAccountId" placeholder="请输入自媒体账号编号" />
         </el-form-item>
+        <el-form-item label="小红书笔记信息" prop="xhsNoteInfo">
+          <el-input v-model="form.xhsNoteInfo" type="textarea" placeholder="请输入小红书笔记信息" />
+        </el-form-item>
         <el-form-item label="备注" prop="remark">
           <el-input v-model="form.remark" placeholder="请输入备注" />
+        </el-form-item>
+        <el-form-item label="检查状态" prop="checkStatus">
+          <el-radio-group v-model="form.checkStatus">
+            <el-radio :label="0">未检查</el-radio>
+            <el-radio :label="1">已检查</el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item label="评论状态" prop="commentStatus">
+          <el-radio-group v-model="form.commentStatus">
+            <el-radio :label="0">正常</el-radio>
+            <el-radio :label="1">吞评</el-radio>
+          </el-radio-group>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -114,6 +157,9 @@ const initFormData: PromptCommentCompleteForm = {
   commentId: undefined,
   mediaAccountId: undefined,
   remark: undefined,
+  xhsNoteInfo: undefined,
+  checkStatus: 0,
+  commentStatus: undefined,
 }
 const data = reactive<PageData<PromptCommentCompleteForm, PromptCommentCompleteQuery>>({
   form: {...initFormData},
@@ -122,6 +168,9 @@ const data = reactive<PageData<PromptCommentCompleteForm, PromptCommentCompleteQ
     pageSize: 10,
     commentId: undefined,
     mediaAccountId: undefined,
+    xhsNoteInfo: undefined,
+    checkStatus: undefined,
+    commentStatus: undefined,
     params: {
     }
   },

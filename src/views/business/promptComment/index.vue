@@ -16,6 +16,12 @@
             <el-form-item label="提示词评论内容" prop="commentContent">
               <el-input v-model="queryParams.commentContent" placeholder="请输入提示词评论内容" clearable @keyup.enter="handleQuery" />
             </el-form-item>
+            <el-form-item label="小红书吞评计数" prop="xhsInterceptCount">
+              <el-input v-model="queryParams.xhsInterceptCount" placeholder="请输入小红书吞评计数" clearable @keyup.enter="handleQuery" />
+            </el-form-item>
+            <el-form-item label="小红书正常评论计数" prop="xhsNormalCount">
+              <el-input v-model="queryParams.xhsNormalCount" placeholder="请输入小红书正常评论计数" clearable @keyup.enter="handleQuery" />
+            </el-form-item>
             <el-form-item>
               <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
               <el-button icon="Refresh" @click="resetQuery">重置</el-button>
@@ -51,10 +57,27 @@
         <el-table-column label="操作分组ID" align="center" prop="operateGroupId" />
         <el-table-column label="标题" align="center" prop="title" />
         <el-table-column label="提示词评论内容" align="center" prop="commentContent" />
+        <el-table-column label="小红书正常评论计数" align="center" prop="xhsNormalCount">
+          <template #default="scope">
+            <el-tag type="success" effect="dark" v-if="scope.row.xhsNormalCount > 0">{{ scope.row.xhsNormalCount }}</el-tag>
+            <span v-else>{{ scope.row.xhsNormalCount }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="小红书吞评计数" align="center" prop="xhsInterceptCount">
+          <template #default="scope">
+            <el-tag type="danger" effect="dark" v-if="scope.row.xhsInterceptCount > 0">{{ scope.row.xhsInterceptCount }}</el-tag>
+            <span v-else>{{ scope.row.xhsInterceptCount }}</span>
+          </template>
+        </el-table-column>
         <el-table-column label="备注" align="center" prop="remark" />
         <el-table-column label="创建时间" align="center" prop="createTime" width="180">
           <template #default="scope">
-            <span>{{ parseTime(scope.row.createTime, '{y}-{m}-{d}') }}</span>
+            <span>{{ parseTime(scope.row.createTime, '{y}-{m}-{d} {h}:{i}:{s}') }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="更新时间" align="center" prop="updateTime" width="180">
+          <template #default="scope">
+            <span>{{ parseTime(scope.row.updateTime, '{y}-{m}-{d} {h}:{i}:{s}') }}</span>
           </template>
         </el-table-column>
         <el-table-column label="操作" align="center" fixed="right"  class-name="small-padding fixed-width">
@@ -85,6 +108,12 @@
         </el-form-item>
         <el-form-item label="提示词评论内容" prop="commentContent">
           <el-input v-model="form.commentContent" type="textarea" placeholder="请输入内容" />
+        </el-form-item>
+        <el-form-item label="小红书吞评计数" prop="xhsInterceptCount">
+          <el-input-number v-model="form.xhsInterceptCount" placeholder="请输入小红书吞评计数" />
+        </el-form-item>
+        <el-form-item label="小红书正常评论计数" prop="xhsNormalCount">
+          <el-input-number v-model="form.xhsNormalCount" placeholder="请输入小红书正常评论计数" />
         </el-form-item>
         <el-form-item label="备注" prop="remark">
           <el-input v-model="form.remark" placeholder="请输入备注" />
@@ -130,6 +159,8 @@ const initFormData: PromptCommentForm = {
   title: undefined,
   commentContent: undefined,
   remark: undefined,
+  xhsInterceptCount: undefined,
+  xhsNormalCount: undefined,
 }
 const data = reactive<PageData<PromptCommentForm, PromptCommentQuery>>({
   form: {...initFormData},
@@ -140,6 +171,8 @@ const data = reactive<PageData<PromptCommentForm, PromptCommentQuery>>({
     operateGroupId: undefined,
     title: undefined,
     commentContent: undefined,
+    xhsInterceptCount: undefined,
+    xhsNormalCount: undefined,
     params: {
     }
   },
