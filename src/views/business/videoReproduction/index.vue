@@ -48,7 +48,9 @@
           <h2>任务详情 <span class="badge">单元分析 (GU)</span></h2>
           <div class="actions">
              <el-button type="primary" plain @click="openWashDialog('all')">一键批量洗图</el-button>
-             <el-button type="success" plain @click="handleBatchGenerate">全量生成 (Veo 3.1)</el-button>
+             <el-button type="success" plain @click="handleBatchGenerate('api')">全量生成 (API收费)</el-button>
+             <el-button type="success" plain @click="handleBatchGenerate('local')">全量生成 (本地免费)</el-button>
+             <el-button type="warning" plain @click="handleMergeVideos">合成全片最终视频</el-button>
              <el-button type="info" plain @click="refreshFrames">刷新详情</el-button>
           </div>
         </div>
@@ -74,6 +76,17 @@
           </div>
         </div>
 
+        <!-- 最终合成结果 -->
+        <div v-if="currentTask.combinedVideoUrl" class="final-video-section glass-card">
+          <div class="section-header">
+            <h3><el-icon style="margin-right:8px;color:#10b981"><Film /></el-icon>全片合成结果 (Final Combined Video)</h3>
+            <el-button type="success" icon="Download" @click="downloadUrl(currentTask.combinedVideoUrl)">下载全片</el-button>
+          </div>
+          <div class="video-container">
+            <video :src="currentTask.combinedVideoUrl" controls class="final-video"></video>
+          </div>
+        </div>
+
         <!-- 捕获的截帧 & 洗图结果 -->
         <div v-loading="loadingFrames" class="frames-section">
           <h3>制作单元详情 (GUs)</h3>
@@ -86,6 +99,9 @@
               <div class="comparison-view">
                 <div class="img-box">
                   <span class="label">原始截帧</span>
+                  <el-button class="add-material-btn" icon="Plus" circle size="small" type="primary" 
+                             @click.stop="handleAddToMaterial(frame.originalImageUrl, `原帧_${currentTask.taskId}_${frame.guId}`)"
+                             title="加入素材库"></el-button>
                   <el-image :src="frame.originalImageUrl" fit="cover" :preview-src-list="[frame.originalImageUrl]" />
                 </div>
                 <div class="arrow-icon">
@@ -93,6 +109,9 @@
                 </div>
                 <div class="img-box polished">
                   <span class="label">AI 洗图 (就绪)</span>
+                  <el-button v-if="frame.polishedImageUrl" class="add-material-btn" icon="Plus" circle size="small" type="success" 
+                             @click.stop="handleAddToMaterial(frame.polishedImageUrl, `洗图_${currentTask.taskId}_${frame.guId}`)"
+                             title="加入素材库"></el-button>
                   <el-image :src="frame.polishedImageUrl || frame.originalImageUrl" fit="cover" 
                             :class="{ pulse: !frame.polishedImageUrl && currentTask.status === '3' }"
                             :preview-src-list="[frame.polishedImageUrl]" />
@@ -100,30 +119,85 @@
               </div>
               <div class="frame-actions" style="margin-bottom: 12px; display: flex; gap: 10px;">
                   <el-button size="small" type="primary" plain @click="openWashDialog('single', frame.frameId)">🔄 洗图</el-button>
+                  <el-button size="small" type="info" plain @click="openCaptureDialog(frame)">📸 手动调整截帧</el-button>
                   <el-button size="small" type="warning" plain v-if="frame.prevPolishedUrl" @click="doUndoWash(frame.frameId)">⏪ 撤回洗图</el-button>
-                  <el-button size="small" type="success" plain @click="doGenerateVideo(frame.frameId)">🎬 生成视频</el-button>
+                  <el-button size="small" type="success" plain @click="doGenerateVideo(frame.frameId, 'api')">🎬 生视频(API)</el-button>
+                  <el-button size="small" type="success" plain @click="doGenerateVideo(frame.frameId, 'local')">🎬 生视频(本地)</el-button>
                   <el-button size="small" type="warning" plain v-if="frame.prevVideoUrl" @click="doUndoVideo(frame.frameId)">⏪ 撤回视频</el-button>
               </div>
-              <div v-if="frame.generatedVideoUrl" class="video-result" style="margin-bottom: 16px;">
+              <div class="video-result" style="margin-bottom: 16px;">
                   <div style="display:flex; justify-content:space-between; align-items:center;">
-                     <span class="label" style="color: #10b981; font-weight: bold;">Veo 3.1 生成结果</span>
-                     <el-button size="small" type="danger" plain @click="openClipDialog(frame)">✂️ 剪辑</el-button>
+                     <span class="label" :style="{ color: frame.generatedVideoUrl ? '#10b981' : '#94a3b8', fontWeight: 'bold' }">
+                       {{ frame.generatedVideoUrl ? 'Veo 3.1 生成结果' : '等待视频生成 / 手动上传' }}
+                     </span>
+                     <div style="display: flex; gap: 8px;">
+                        <el-upload action="#" :auto-upload="false" :show-file-list="false" :on-change="(file) => handleGeneratedVideoUpload(frame, file)" accept="video/*">
+                           <el-button size="small" :type="frame.generatedVideoUrl ? 'primary' : 'success'" plain icon="Upload">
+                             {{ frame.generatedVideoUrl ? '手动替换' : '手动上传视频' }}
+                           </el-button>
+                        </el-upload>
+                        <el-button v-if="frame.generatedVideoUrl" size="small" type="info" plain icon="Microphone" @click="downloadFrameAudio(frame)">音频</el-button>
+                        <el-button v-if="frame.generatedVideoUrl" size="small" type="danger" plain @click="openClipDialog(frame)">剪辑</el-button>
+                     </div>
                   </div>
-                  <video :src="frame.generatedVideoUrl" controls style="width: 100%; max-height: 240px; border-radius: 8px; margin-top: 8px; border: 1px solid rgba(255, 255, 255, 0.1);"></video>
+                  <video v-if="frame.generatedVideoUrl" :src="frame.generatedVideoUrl" controls style="width: 100%; max-height: 240px; border-radius: 8px; margin-top: 8px; border: 1px solid rgba(255, 255, 255, 0.1);"></video>
+                  <div v-else class="video-placeholder-empty">
+                     <el-icon class="icon"><Film /></el-icon>
+                     <span>暂无视频结果</span>
+                  </div>
               </div>
-              <div class="prompt-section">
+              <div class="prompt-section prompt-en">
                 <div class="prompt-header">
-                   <span>图生视频提示词 (英文)</span>
-                   <el-button link type="primary" @click="copyText(frame.i2vPromptEn)">复制提示词</el-button>
+                   <span>模型提示词 (EN)</span>
+                   <div class="actions">
+                      <el-button link type="primary" @click="toggleEditPrompt(frame)">{{ frame.editing ? '取消' : '编辑' }}</el-button>
+                      <el-button v-if="frame.editing" link type="success" @click="savePrompts(frame)">保存修改</el-button>
+                      <el-button link type="primary" @click="copyText(frame.i2vPromptEn)">复制提示词</el-button>
+                   </div>
                 </div>
-                <div class="prompt-text">{{ frame.i2vPromptEn }}</div>
+                <div v-if="!frame.editing" class="prompt-text en-text">{{ frame.i2vPromptEn }}</div>
+                <el-input v-else v-model="frame.i2vPromptEn" type="textarea" :rows="6" class="prompt-edit-area"></el-input>
               </div>
-              <div v-if="frame.i2vPromptZh" class="prompt-section prompt-zh">
+
+              <div v-if="frame.i2vPromptZh || frame.editing" class="prompt-section prompt-zh">
                 <div class="prompt-header">
                    <span>中文对照</span>
-                   <el-button link type="primary" @click="copyText(frame.i2vPromptZh)">复制中文</el-button>
+                   <el-button v-if="!frame.editing" link type="primary" @click="copyText(frame.i2vPromptZh)">复制中文</el-button>
                 </div>
-                <div class="prompt-text zh-text">{{ frame.i2vPromptZh }}</div>
+                <div v-if="!frame.editing" class="prompt-text zh-text">{{ frame.i2vPromptZh }}</div>
+                <el-input v-else v-model="frame.i2vPromptZh" type="textarea" :rows="3" class="prompt-edit-area"></el-input>
+              </div>
+
+              <!-- 音频管理模块 -->
+              <div class="audio-management glass-card">
+                 <div class="section-header">
+                    <span class="label"><el-icon><Microphone /></el-icon> 音频 & 口型同步</span>
+                    <el-button v-if="frame.audioUrl" type="primary" link @click="openAudioTrimDialog(frame)">手动裁剪</el-button>
+                 </div>
+                 
+                 <div v-if="!frame.audioUrl" class="audio-upload-placeholder">
+                    <el-upload
+                      action="#"
+                      :auto-upload="false"
+                      :show-file-list="false"
+                      :on-change="(file) => handleAudioUpload(frame, file)"
+                      accept="audio/*"
+                    >
+                      <el-button size="small" type="primary" plain icon="Upload">上传同步音频</el-button>
+                    </el-upload>
+                    <span class="tip">配合对准口型 (支持 .mp3, .wav)</span>
+                 </div>
+
+                 <div v-else class="audio-active-zone">
+                    <audio :src="frame.audioUrl" controls class="mini-audio-player"></audio>
+                    <div class="audio-actions">
+                       <el-button size="small" type="success" plain @click="doAutoTrimAudio(frame.frameId)" :loading="trimming">一键自动去静音</el-button>
+                       <el-button size="small" type="warning" plain @click="doSyncAudioToVideo(frame.frameId)" :loading="syncing">同步至视频/口型</el-button>
+                       <el-upload action="#" :auto-upload="false" :show-file-list="false" :on-change="(file) => handleAudioUpload(frame, file)" style="display:inline-block; margin-left:8px;">
+                          <el-button size="small" link type="primary">重新上传</el-button>
+                       </el-upload>
+                    </div>
+                 </div>
               </div>
             </div>
           </div>
@@ -199,6 +273,14 @@
             </el-form-item>
           </el-col>
         </el-row>
+        
+        <el-divider content-position="left">运行偏好设置</el-divider>
+        <el-form-item label="任务首发执行引擎 (分析原视频)">
+          <el-radio-group v-model="uploadForm.execMode">
+            <el-radio-button label="api">调用平台大模型API (全自动处理)</el-radio-button>
+            <el-radio-button label="local">本地全自动监听队列 (免费，依赖客户端节点)</el-radio-button>
+          </el-radio-group>
+        </el-form-item>
       </el-form>
       <template #footer>
         <span class="dialog-footer">
@@ -211,6 +293,13 @@
     <!-- 洗图工作台对话框 -->
     <el-dialog v-model="showWashDialog" title="洗图工作台 (Nano Banana)" width="650px" append-to-body>
       <el-form :model="washForm" label-position="top" class="custom-form">
+        <el-form-item label="任务执行模式">
+          <el-radio-group v-model="washForm.execMode">
+            <el-radio label="api">API 模式 (扣费极速)</el-radio>
+            <el-radio label="local">本地机器模式 (排队免费)</el-radio>
+          </el-radio-group>
+        </el-form-item>
+
         <el-form-item label="创作模式">
           <el-radio-group v-model="washForm.washMode" style="display: flex; flex-direction: column; align-items: flex-start; gap: 10px;">
             <el-radio label="original">原图 - 智能融合</el-radio>
@@ -295,16 +384,67 @@
         </span>
       </template>
     </el-dialog>
+
+    <!-- 音频裁剪对话框 -->
+    <el-dialog v-model="showAudioTrimDialog" title="音频精准裁剪" width="600px" append-to-body destroy-on-close>
+       <div v-if="trimAudioUrl" style="text-align: center; margin-bottom: 20px;">
+          <audio ref="trimAudioRef" :src="trimAudioUrl" controls style="width: 100%;" @loadedmetadata="onAudioLoaded"></audio>
+       </div>
+       <div style="margin-bottom: 10px; font-size: 13px; color: #666;">
+          请拖动滑块选择需要<b>保留</b>的音频区间：
+       </div>
+       <el-slider v-model="audioTrimRange" range :max="audioDuration" :step="0.01" @input="seekAudioToSlider"></el-slider>
+       <div style="display:flex; justify-content:space-between; font-size: 12px; color: #999; margin-top:5px;">
+          <span>起始点: {{ audioTrimRange[0].toFixed(2) }}s</span>
+          <span>结束点: {{ audioTrimRange[1].toFixed(2) }}s</span>
+          <span>裁剪后总长: {{ (audioTrimRange[1] - audioTrimRange[0]).toFixed(2) }}s</span>
+       </div>
+       <template #footer>
+          <span class="dialog-footer">
+            <el-button @click="showAudioTrimDialog = false">取消</el-button>
+            <el-button type="primary" :loading="trimming" @click="submitManualAudioTrim">执行裁剪</el-button>
+          </span>
+       </template>
+    </el-dialog>
+
+    <!-- 关键帧手动截取对话框 -->
+    <el-dialog v-model="showCaptureDialog" title="手动捕捉关键帧" width="800px" append-to-body destroy-on-close>
+      <div v-if="captureVideoUrl" style="margin-bottom: 20px; text-align: center;">
+        <video ref="captureVideoRef" :src="captureVideoUrl" style="width: 100%; max-height: 450px; border-radius: 8px; background: #000; cursor: pointer;" @loadedmetadata="onCaptureVideoLoaded" @click="toggleCapturePlay" @timeupdate="onCaptureTimeUpdate"></video>
+        <div style="margin-top: 10px; display: flex; justify-content: center; align-items: center; gap: 15px;">
+          <el-button @click="toggleCapturePlay" size="small" type="primary" plain round>
+            <el-icon style="margin-right: 4px"><VideoPlay /></el-icon> 播放 / 暂停
+          </el-button>
+          <div style="font-weight: bold; font-family: monospace; font-size: 16px; color: #409eff;">
+            当前位置: {{ captureTime.toFixed(3) }}s
+          </div>
+        </div>
+      </div>
+      <div style="padding: 0 20px;">
+        <el-slider v-model="captureTime" :max="videoDuration" :step="0.001" @input="seekToCaptureTime"></el-slider>
+        <div style="margin-top: 10px; color: #666; font-size: 13px;">
+          请拖动上方滑块，或直接点击视频画面定位到您认为最准确的一帧作为素材。
+        </div>
+      </div>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="showCaptureDialog = false">取消</el-button>
+          <el-button type="primary" :loading="capturing" @click="submitCapture">确认截取并替换</el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
-import { Plus, VideoCamera, Calendar, Right, Check, VideoPlay, Delete } from '@element-plus/icons-vue'
-import { listVideoReproduce, createVideoReproduce, getFrames, generateAllVideos, washImage, washAllImages, undoWash, generateVideo, undoVideo, delVideoReproduce, clipVideo } from '@/api/business/videoReproduce'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { Plus, VideoCamera, Calendar, Right, Check, VideoPlay, Delete, Film, Download, Microphone, Upload, Edit } from '@element-plus/icons-vue'
+import { listVideoReproduce, createVideoReproduce, getFrames, generateAllVideos, washImage, washAllImages, undoWash, generateVideo, undoVideo, delVideoReproduce, clipVideo, mergeVideos, bindAudio, autoTrimAudio, manualTrimAudio, syncAudioToVideo, updatePrompts, recaptureFrame, uploadGeneratedVideo, downloadAudio } from '@/api/business/videoReproduce'
 import { listMaterial } from '@/api/business/material'
+import { addMaterial } from '@/api/business/material'
 import { parseTime } from "@/utils/ruoyi";
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { getToken } from "@/utils/auth";
+import { ElMessage, ElMessageBox, ElLoading } from 'element-plus'
 
 const taskList = ref([])
 const currentTask = ref(null)
@@ -358,14 +498,141 @@ const onVideoLoaded = (e) => {
 
 const seekToSlider = (val, idx) => {
     const prev = clipRanges.value[idx]._prev || [0, 0]
-    let seekTime = val[0]
-    if (val[0] !== prev[0]) seekTime = val[0]
-    else if (val[1] !== prev[1]) seekTime = val[1]
-    
-    if (clipVideoRef.value) {
-        clipVideoRef.value.currentTime = seekTime
+    // 找出哪个点动了
+    if (val[0] !== prev[0]) {
+        if (clipVideoRef.value) clipVideoRef.value.currentTime = val[0]
+    } else if (val[1] !== prev[1]) {
+        if (clipVideoRef.value) clipVideoRef.value.currentTime = val[1]
     }
     clipRanges.value[idx]._prev = [...val]
+}
+
+// 手动截帧状态
+const showCaptureDialog = ref(false)
+const capturing = ref(false)
+const captureTargetFrameId = ref(null)
+const captureVideoUrl = ref('')
+const captureTime = ref(0)
+const captureVideoRef = ref(null)
+
+const openCaptureDialog = (frame) => {
+    captureTargetFrameId.value = frame.frameId
+    captureVideoUrl.value = currentTask.value.originalVideoUrl
+    captureTime.value = parseFloat(frame.timestampSec) || 0
+    showCaptureDialog.value = true
+}
+
+const onCaptureVideoLoaded = (e) => {
+    videoDuration.value = e.target.duration
+    if (captureVideoRef.value) {
+        captureVideoRef.value.currentTime = captureTime.value
+    }
+}
+
+const onCaptureTimeUpdate = (e) => {
+    // 只有在视频播放时才同步进度条给 captureTime，避免拖动滑块时循环触发
+    if (captureVideoRef.value && !captureVideoRef.value.paused) {
+        captureTime.value = e.target.currentTime
+    }
+}
+
+const seekToCaptureTime = (val) => {
+    if (captureVideoRef.value) {
+        captureVideoRef.value.currentTime = val
+        captureTime.value = val
+    }
+}
+
+const toggleCapturePlay = () => {
+    if (captureVideoRef.value) {
+        if (captureVideoRef.value.paused) {
+            captureVideoRef.value.play()
+        } else {
+            captureVideoRef.value.pause()
+        }
+    }
+}
+
+const submitCapture = async () => {
+    if (!captureTargetFrameId.value) return
+    capturing.value = true
+    try {
+        await recaptureFrame(captureTargetFrameId.value, captureTime.value)
+        ElMessage.success('关键帧已更新')
+        showCaptureDialog.value = false
+        refreshFrames()
+    } catch (e) {
+        console.error(e)
+    } finally {
+        capturing.value = false
+    }
+}
+
+// 手动上传生成视频逻辑
+const handleGeneratedVideoUpload = async (frame, file) => {
+    if (!file || !file.raw) return
+    
+    const loading = ElLoading.service({
+        lock: true,
+        text: '正在上传视频并替换结果...',
+        background: 'rgba(0, 0, 0, 0.7)',
+    })
+    
+    try {
+        await uploadGeneratedVideo(frame.frameId, file.raw)
+        ElMessage.success('视频文件已成功替换')
+        refreshFrames()
+    } catch (e) {
+        console.error(e)
+        ElMessage.error('视频上传失败')
+    } finally {
+        loading.close()
+    }
+}
+
+// 下载视频中的音频
+const downloadFrameAudio = async (frame) => {
+    const loading = ElLoading.service({
+        lock: true,
+        text: '正在提取音频...',
+        background: 'rgba(0, 0, 0, 0.7)',
+    })
+    try {
+        const response = await downloadAudio(frame.frameId)
+        
+        // 这里的 response 已经是 blob 了，因为 request 里的 responseType: 'blob'
+        // 如果后端报错，request 的拦截器通常会处理成 JSON 错误弹窗
+        const blob = new Blob([response], { type: 'audio/mpeg' })
+        const downloadUrl = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = downloadUrl
+        a.download = `GU_${frame.guId}_Audio.mp3`
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(downloadUrl)
+        ElMessage.success('音频下载成功')
+    } catch (e) {
+        console.error(e)
+        // 错误通常已经被拦截器处理了，这里做兜底
+    } finally {
+        loading.close()
+    }
+}
+
+// 加入素材库
+const handleAddToMaterial = async (url, name) => {
+    if (!url) return ElMessage.warning('无效的图片地址')
+    try {
+        await addMaterial({
+            materialName: name,
+            materialUrl: url,
+            fileType: '0' // 0 图片
+        })
+        ElMessage.success('已添加到素材库')
+    } catch (e) {
+        ElMessage.error('添加失败')
+    }
 }
 
 const submitClip = async () => {
@@ -396,6 +663,7 @@ const washing = ref(false)
 const washType = ref('single') // single or all
 const washTargetFrameId = ref(null)
 const washForm = ref({
+  execMode: 'api',
   washMode: 'original',
   customPrompt: ''
 })
@@ -414,7 +682,8 @@ const uploadForm = ref({
   painPoint1: '',
   painPoint2: '',
   painPoint3: '',
-  productConfigJson: ''
+  productConfigJson: '',
+  execMode: 'api'
 })
 
 const getList = async () => {
@@ -435,9 +704,42 @@ const refreshFrames = async () => {
     loadingFrames.value = true
     try {
         const res = await getFrames(currentTask.value.taskId)
-        frames.value = res.data
+        const sortedData = (res.data || []).sort((a, b) => {
+            const guA = parseInt(a.guId) || 0;
+            const guB = parseInt(b.guId) || 0;
+            return guA - guB;
+        });
+        frames.value = sortedData.map(f => ({
+            ...f,
+            editing: false,
+            origEn: f.i2vPromptEn,
+            origZh: f.i2vPromptZh
+        }))
     } finally {
         loadingFrames.value = false
+    }
+}
+
+const toggleEditPrompt = (frame) => {
+    if (frame.editing) {
+        frame.i2vPromptEn = frame.origEn
+        frame.i2vPromptZh = frame.origZh
+    } else {
+        frame.origEn = frame.i2vPromptEn
+        frame.origZh = frame.i2vPromptZh
+    }
+    frame.editing = !frame.editing
+}
+
+const savePrompts = async (frame) => {
+    try {
+        await updatePrompts(frame.frameId, frame.i2vPromptEn, frame.i2vPromptZh)
+        ElMessage.success('提示词更新成功')
+        frame.editing = false
+        frame.origEn = frame.i2vPromptEn
+        frame.origZh = frame.i2vPromptZh
+    } catch (e) {
+        ElMessage.error('更新失败')
     }
 }
 
@@ -488,6 +790,7 @@ const submitTask = async () => {
         const formData = new FormData()
         formData.append('video', uploadForm.value.video)
         formData.append('productConfigJson', uploadForm.value.productConfigJson)
+        formData.append('execMode', uploadForm.value.execMode)
         uploadForm.value.charImages.forEach(i => formData.append('charImages', i))
         uploadForm.value.productImages.forEach(i => formData.append('productImages', i))
         
@@ -508,15 +811,16 @@ const copyText = (text) => {
     ElMessage.success('提示词已复制到剪贴板')
 }
 
-const handleBatchGenerate = async () => {
+const handleBatchGenerate = async (execMode = 'api') => {
+    const tip = execMode === 'local' ? '调用本地测试机器自动产生，速度慢但免费' : '调用 Veo 3.1 官方 API 接口，速度快但成本较高';
     try {
-        await ElMessageBox.confirm('确定要为该任务下所有截帧批量生成视频吗？(调用 Veo 3.1 成本较高)', '执行确认', {
-            confirmButtonText: '立即生成',
+        await ElMessageBox.confirm(`确定要为该任务下所有截帧批量生成视频吗？\n(${tip})`, '执行确认', {
+            confirmButtonText: '确定提交',
             cancelButtonText: '取消',
             type: 'warning',
         })
-        await generateAllVideos(currentTask.value.taskId)
-        ElMessage.success('已向 Veo 3.1 发送批量生成请求')
+        await generateAllVideos(currentTask.value.taskId, execMode)
+        ElMessage.success(`已发送批量生成请求 (${execMode === 'local' ? '本地排队中' : '全量API触发'})`)
         refreshFrames()
     } catch (e) {
         // 取消操作
@@ -567,7 +871,7 @@ const toggleMaterialSelection = (url) => {
 const openWashDialog = (type, frameId = null) => {
     washType.value = type
     washTargetFrameId.value = frameId
-    washForm.value = { washMode: 'original', customPrompt: '' }
+    washForm.value = { execMode: 'api', washMode: 'original', customPrompt: '' }
     materialSelection.value = []
     showWashDialog.value = true
     if (materialList.value.length === 0) {
@@ -579,6 +883,7 @@ const openWashDialog = (type, frameId = null) => {
 const submitWash = async () => {
     const refImagesArray = materialSelection.value
     const params = {
+        execMode: washForm.value.execMode,
         washMode: washForm.value.washMode,
         customPrompt: washForm.value.customPrompt,
         refImages: refImagesArray
@@ -606,15 +911,16 @@ const doUndoWash = async (frameId) => {
     refreshFrames()
 }
 
-const doGenerateVideo = async (frameId) => {
+const doGenerateVideo = async (frameId, execMode = 'api') => {
+    const tip = execMode === 'local' ? '调用本地测试机器生成，需要排队' : '调用 API 接口生成，会有额度扣费！';
     try {
-        await ElMessageBox.confirm('确定要对此单帧生成视频吗？', '执行确认', {
+        await ElMessageBox.confirm(`确定要对此单帧生成视频吗？(${tip})`, '执行确认', {
             confirmButtonText: '立即生成',
             cancelButtonText: '取消',
             type: 'warning',
         })
-        await generateVideo(frameId)
-        ElMessage.success('已发送 Veo 3.1 单帧生成请求')
+        await generateVideo(frameId, execMode)
+        ElMessage.success(`已发送生视频请求 (${execMode === 'local' ? '本地队列中' : '请求API中'})`)
         refreshFrames()
     } catch (e) {
         // 取消操作
@@ -625,6 +931,101 @@ const doUndoVideo = async (frameId) => {
     await undoVideo(frameId)
     ElMessage.success('已撤回最新视频')
     refreshFrames()
+}
+
+const merging = ref(false)
+const handleMergeVideos = async () => {
+    try {
+        await ElMessageBox.confirm('确定要按照单元顺序合成全片视频吗？这将包含所有已生成的视频片段。', '合成确认', {
+            confirmButtonText: '开始合成',
+            cancelButtonText: '取消',
+            type: 'info'
+        })
+        merging.value = true
+        await mergeVideos(currentTask.value.taskId)
+        ElMessage.success('合成任务已提交，请稍后刷新查看结果')
+        // 自动刷新以便获取新出来的 combinedVideoUrl
+        setTimeout(() => getList(), 3000)
+    } catch (e) {
+        // 取消
+    } finally {
+        merging.value = false
+    }
+}
+
+const downloadUrl = (url) => {
+    window.open(url, '_blank')
+}
+
+// 音频管理逻辑
+const trimming = ref(false)
+const syncing = ref(false)
+const showAudioTrimDialog = ref(false)
+const trimAudioUrl = ref('')
+const trimAudioTargetFrameId = ref(null)
+const audioTrimRange = ref([0, 0])
+const audioDuration = ref(0)
+const trimAudioRef = ref(null)
+
+const handleAudioUpload = async (frame, file) => {
+    try {
+        ElMessage.info('正在上传音频...')
+        await bindAudio(frame.frameId, file.raw)
+        ElMessage.success('音频绑定成功')
+        refreshFrames()
+    } catch (e) {}
+}
+
+const doAutoTrimAudio = async (frameId) => {
+    try {
+        trimming.value = true
+        await autoTrimAudio(frameId)
+        ElMessage.success('自动去静音处理完成')
+        refreshFrames()
+    } finally {
+        trimming.value = false
+    }
+}
+
+const doSyncAudioToVideo = async (frameId) => {
+    try {
+        syncing.value = true
+        await syncAudioToVideo(frameId)
+        ElMessage.success('音画同步合成完成')
+        refreshFrames()
+    } finally {
+        syncing.value = false
+    }
+}
+
+const openAudioTrimDialog = (frame) => {
+    trimAudioTargetFrameId.value = frame.frameId
+    trimAudioUrl.value = frame.audioUrl
+    audioTrimRange.value = [0, 1] // 初始值
+    showAudioTrimDialog.value = true
+}
+
+const onAudioLoaded = (e) => {
+    audioDuration.value = e.target.duration
+    audioTrimRange.value = [0, e.target.duration]
+}
+
+const seekAudioToSlider = (val) => {
+    if (trimAudioRef.value) {
+        trimAudioRef.value.currentTime = val[0]
+    }
+}
+
+const submitManualAudioTrim = async () => {
+    try {
+        trimming.value = true
+        await manualTrimAudio(trimAudioTargetFrameId.value, audioTrimRange.value[0], audioTrimRange.value[1])
+        ElMessage.success('手动裁剪应用成功')
+        showAudioTrimDialog.value = false
+        refreshFrames()
+    } finally {
+        trimming.value = false
+    }
 }
 
 const getStatusType = (status) => {
@@ -644,15 +1045,24 @@ const getStatusLabel = (status) => {
   return map[status] || '未知状态'
 }
 
+let autoRefreshTimer = null
+
 onMounted(() => {
     getList()
-    // 轮询状态
-    const timer = setInterval(() => {
-        if (currentTask.value && currentTask.value.status !== '4' && currentTask.value.status !== '9') {
-            getList()
+    // 每 1 分钟自动刷新一次任务列表和当前截帧详情，保持页面状态最新
+    autoRefreshTimer = setInterval(() => {
+        getList()
+        if (currentTask.value) {
             refreshFrames()
         }
-    }, 10000)
+    }, 60000)
+})
+
+onUnmounted(() => {
+    if (autoRefreshTimer) {
+        clearInterval(autoRefreshTimer)
+        autoRefreshTimer = null
+    }
 })
 </script>
 
@@ -856,6 +1266,101 @@ onMounted(() => {
   gap: 24px;
 }
 
+.final-video-section {
+  margin: 30px 0;
+  padding: 24px;
+  background: var(--el-color-success-light-9);
+  border: 1px solid var(--el-color-success-light-5);
+  border-radius: 12px;
+}
+
+.final-video-section h3 {
+  margin: 0;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+}
+
+.final-video-section .section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.final-video-section .video-container {
+  background: #000;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+}
+
+.prompt-edit-area {
+  margin-top: 8px;
+  font-family: inherit;
+}
+
+.prompt-edit-area :deep(.el-textarea__inner) {
+  background: rgba(255,255,255,0.05);
+  border-color: var(--el-color-primary-light-5);
+  color: var(--el-text-color-primary);
+}
+
+.final-video {
+  width: 100%;
+  max-height: 500px;
+  display: block;
+}
+
+.audio-management {
+  margin-top: 16px;
+  padding: 16px;
+  background: var(--el-color-primary-light-9);
+  border: 1px dashed var(--el-color-primary-light-3);
+  border-radius: 8px;
+}
+
+.audio-management .section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.audio-management .label {
+  font-size: 14px;
+  font-weight: bold;
+  color: var(--el-color-primary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.audio-upload-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0;
+}
+
+.audio-upload-placeholder .tip {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.mini-audio-player {
+  width: 100%;
+  height: 32px;
+  margin-bottom: 12px;
+}
+
+.audio-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .frame-card {
   padding: 24px;
   border: 1px solid var(--el-border-color-light);
@@ -913,6 +1418,20 @@ onMounted(() => {
   width: 100%;
   height: 240px;
   display: block;
+}
+
+.add-material-btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 11;
+  opacity: 0;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.img-box:hover .add-material-btn {
+  opacity: 1;
 }
 
 .arrow-icon {
@@ -1009,4 +1528,23 @@ onMounted(() => {
 .task-grid::-webkit-scrollbar-thumb { background: var(--el-border-color); border-radius: 10px; }
 .material-picker-list::-webkit-scrollbar { width: 6px; }
 .material-picker-list::-webkit-scrollbar-thumb { background: var(--el-border-color); border-radius: 10px; }
+
+.video-placeholder-empty {
+  height: 240px;
+  background: rgba(0, 0, 0, 0.03);
+  border: 1px dashed var(--el-border-color);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin-top: 8px;
+  color: var(--el-text-color-secondary);
+  gap: 10px;
+}
+
+.video-placeholder-empty .icon {
+  font-size: 32px;
+  opacity: 0.5;
+}
 </style>
