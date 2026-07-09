@@ -23,6 +23,7 @@
               <el-select v-model="queryParams.commentStatus" placeholder="请选择评论状态" clearable>
                 <el-option label="正常" :value="0" />
                 <el-option label="吞评" :value="1" />
+                <el-option label="折叠" :value="2" />
               </el-select>
             </el-form-item>
             <el-form-item>
@@ -69,6 +70,7 @@
           <template #default="scope">
             <el-tag v-if="scope.row.commentStatus === 0" type="success">正常</el-tag>
             <el-tag v-else-if="scope.row.commentStatus === 1" type="danger">吞评</el-tag>
+            <el-tag v-else-if="scope.row.commentStatus === 2" type="warning">折叠</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="备注" align="center" prop="remark" />
@@ -116,6 +118,7 @@
           <el-radio-group v-model="form.commentStatus">
             <el-radio :label="0">正常</el-radio>
             <el-radio :label="1">吞评</el-radio>
+            <el-radio :label="2">折叠</el-radio>
           </el-radio-group>
         </el-form-item>
       </el-form>

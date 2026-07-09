@@ -19,9 +19,15 @@ export default defineConfig(({ mode, command }) => {
     // https://cn.vitejs.dev/config/#resolve-extensions
     plugins: createPlugins(env, command === 'build'),
     server: {
-      host: '0.0.0.0',
+      target: 'http://localhost:8080',
+      host: "0.0.0.0",
+      changeOrigin: true,
+      ws: true,
+      timeout: 60000, // 增加超时时间
+      proxyTimeout: 60000,
       port: Number(env.VITE_APP_PORT),
       open: true,
+      allowedHosts: true,
       proxy: {
         [env.VITE_APP_BASE_API]: {
           target: 'http://localhost:8080',

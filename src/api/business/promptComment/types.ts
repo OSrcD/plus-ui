@@ -40,6 +40,11 @@ export interface PromptCommentVO {
   xhsNormalCount: number;
 
   /**
+   * 小红书折叠次数
+   */
+  xhsFoldCount: number;
+
+  /**
    * 创建时间
    */
   createTime: string;
@@ -91,6 +96,11 @@ export interface PromptCommentForm extends BaseEntity {
    * 小红书非吞评次数
    */
   xhsNormalCount?: number;
+
+  /**
+   * 小红书折叠次数
+   */
+  xhsFoldCount?: number;
 }
 
 export interface PromptCommentQuery extends PageQuery {
@@ -124,6 +134,11 @@ export interface PromptCommentQuery extends PageQuery {
    * 小红书非吞评次数
    */
   xhsNormalCount?: number;
+
+  /**
+   * 小红书折叠次数
+   */
+  xhsFoldCount?: number;
 
   /**
    * 日期范围参数

@@ -30,7 +30,7 @@
             </div>
           </div>
           <div class="task-preview" @click.stop="task.originalVideoUrl ? openVideoPreview(task.originalVideoUrl) : null">
-            <video v-if="task.originalVideoUrl" :src="task.originalVideoUrl" class="mini-video" muted @mouseover="playVideo" @mouseleave="pauseVideo"></video>
+            <video v-if="task.originalVideoUrl" :src="task.originalVideoUrl + '#t=0.1'" class="mini-video" muted preload="metadata" @mouseover="playVideo" @mouseleave="pauseVideo"></video>
             <div class="play-overlay" v-if="task.originalVideoUrl"><el-icon><VideoPlay /></el-icon></div>
             <div v-else class="video-placeholder">无预览</div>
           </div>
@@ -47,10 +47,15 @@
         <div class="detail-header">
           <h2>任务详情 <span class="badge">单元分析 (GU)</span></h2>
           <div class="actions">
+            <span v-if="selectedGUs.length > 0" class="selection-tip">已选中 {{ selectedGUs.length }} 个单元</span>
+            <el-button type="warning" plain icon="RefreshLeft" @click="selectedGUs = []" v-if="selectedGUs.length > 0">清空选择</el-button>
+            <el-button color="#10b981" :loading="merging" @click="handleMergeVideos" style="color: white; font-weight: bold; padding: 10px 20px;">
+                <el-icon style="margin-right: 6px;"><Check /></el-icon>
+                合成全片最终视频
+            </el-button>
              <el-button type="primary" plain @click="openWashDialog('all')">一键批量洗图</el-button>
              <el-button type="success" plain @click="handleBatchGenerate('api')">全量生成 (API收费)</el-button>
              <el-button type="success" plain @click="handleBatchGenerate('local')">全量生成 (本地免费)</el-button>
-             <el-button type="warning" plain @click="handleMergeVideos">合成全片最终视频</el-button>
              <el-button type="info" plain @click="refreshFrames">刷新详情</el-button>
           </div>
         </div>
@@ -83,7 +88,7 @@
             <el-button type="success" icon="Download" @click="downloadUrl(currentTask.combinedVideoUrl)">下载全片</el-button>
           </div>
           <div class="video-container">
-            <video :src="currentTask.combinedVideoUrl" controls class="final-video"></video>
+            <video :src="currentTask.combinedVideoUrl" controls class="final-video" preload="metadata"></video>
           </div>
         </div>
 
@@ -91,41 +96,54 @@
         <div v-loading="loadingFrames" class="frames-section">
           <h3>制作单元详情 (GUs)</h3>
           <div class="frame-list">
-            <div v-for="frame in frames" :key="frame.frameId" class="frame-card glass-card">
+            <div v-for="frame in frames" :key="frame.frameId" class="frame-card glass-card" :class="{ 'is-selected': selectedGUs.includes(String(frame.frameId)) }" @click="toggleSelection(frame.frameId)">
               <div class="frame-header">
-                <strong>制作单元 {{ frame.guId }}</strong>
-                <span class="timestamp">原始时间点: {{ frame.timestampSec }}s</span>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                   <el-checkbox :model-value="selectedGUs.includes(String(frame.frameId))" @change="toggleSelection(frame.frameId)" @click.stop></el-checkbox>
+                   <div v-if="selectedGUs.includes(String(frame.frameId))" class="selection-order">{{ selectedGUs.indexOf(String(frame.frameId)) + 1 }}</div>
+                   <strong>制作单元 {{ frame.guId }}</strong>
+                </div>
+                <div style="display: flex; align-items: center; gap: 15px;">
+                   <span class="timestamp">原始时间点: {{ frame.timestampSec }}s</span>
+                   <el-button link type="danger" icon="Delete" @click.stop="handleDelFrame(frame.frameId)" title="彻底删除此制作单元">删除单元</el-button>
+                </div>
               </div>
               <div class="comparison-view">
-                <div class="img-box">
+                <div class="img-box" @click.stop>
                   <span class="label">原始截帧</span>
                   <el-button class="add-material-btn" icon="Plus" circle size="small" type="primary" 
                              @click.stop="handleAddToMaterial(frame.originalImageUrl, `原帧_${currentTask.taskId}_${frame.guId}`)"
                              title="加入素材库"></el-button>
-                  <el-image :src="frame.originalImageUrl" fit="cover" :preview-src-list="[frame.originalImageUrl]" />
+                   <el-image :src="frame.originalImageUrl" fit="cover" :preview-src-list="[frame.originalImageUrl]" preview-teleported />
                 </div>
                 <div class="arrow-icon">
                   <el-icon><Right /></el-icon>
                 </div>
-                <div class="img-box polished">
+                <div class="img-box polished" @click.stop>
                   <span class="label">AI 洗图 (就绪)</span>
                   <el-button v-if="frame.polishedImageUrl" class="add-material-btn" icon="Plus" circle size="small" type="success" 
                              @click.stop="handleAddToMaterial(frame.polishedImageUrl, `洗图_${currentTask.taskId}_${frame.guId}`)"
                              title="加入素材库"></el-button>
                   <el-image :src="frame.polishedImageUrl || frame.originalImageUrl" fit="cover" 
                             :class="{ pulse: !frame.polishedImageUrl && currentTask.status === '3' }"
-                            :preview-src-list="[frame.polishedImageUrl]" />
+                            :preview-src-list="[frame.polishedImageUrl || frame.originalImageUrl]" preview-teleported />
                 </div>
               </div>
-              <div class="frame-actions" style="margin-bottom: 12px; display: flex; gap: 10px;">
+              <div class="frame-actions" style="margin-bottom: 12px; display: flex; gap: 10px;" @click.stop>
                   <el-button size="small" type="primary" plain @click="openWashDialog('single', frame.frameId)">🔄 洗图</el-button>
                   <el-button size="small" type="info" plain @click="openCaptureDialog(frame)">📸 手动调整截帧</el-button>
+                  <el-upload action="#" :auto-upload="false" :show-file-list="false" :on-change="(file) => handleOriginalImageUpload(frame, file)" accept="image/*" style="display:inline-block; margin: 0 10px;">
+                     <el-button size="small" type="primary" plain>🖼️ 上传图片</el-button>
+                  </el-upload>
+                  <el-button size="small" type="danger" plain v-if="frame.originalImageUrl" @click="handleDelOriginalImage(frame.frameId)">🗑️ 删除图片</el-button>
                   <el-button size="small" type="warning" plain v-if="frame.prevPolishedUrl" @click="doUndoWash(frame.frameId)">⏪ 撤回洗图</el-button>
+                  <el-button size="small" type="danger" plain v-if="frame.polishedImageUrl" @click="handleDelWash(frame.frameId)">🗑️ 删除洗图</el-button>
                   <el-button size="small" type="success" plain @click="doGenerateVideo(frame.frameId, 'api')">🎬 生视频(API)</el-button>
                   <el-button size="small" type="success" plain @click="doGenerateVideo(frame.frameId, 'local')">🎬 生视频(本地)</el-button>
                   <el-button size="small" type="warning" plain v-if="frame.prevVideoUrl" @click="doUndoVideo(frame.frameId)">⏪ 撤回视频</el-button>
+                  <el-button size="small" type="danger" plain v-if="frame.generatedVideoUrl" @click="handleDelVideo(frame.frameId)">🗑️ 删除视频</el-button>
               </div>
-              <div class="video-result" style="margin-bottom: 16px;">
+              <div class="video-result" style="margin-bottom: 16px;" @click.stop>
                   <div style="display:flex; justify-content:space-between; align-items:center;">
                      <span class="label" :style="{ color: frame.generatedVideoUrl ? '#10b981' : '#94a3b8', fontWeight: 'bold' }">
                        {{ frame.generatedVideoUrl ? 'Veo 3.1 生成结果' : '等待视频生成 / 手动上传' }}
@@ -140,13 +158,13 @@
                         <el-button v-if="frame.generatedVideoUrl" size="small" type="danger" plain @click="openClipDialog(frame)">剪辑</el-button>
                      </div>
                   </div>
-                  <video v-if="frame.generatedVideoUrl" :src="frame.generatedVideoUrl" controls style="width: 100%; max-height: 240px; border-radius: 8px; margin-top: 8px; border: 1px solid rgba(255, 255, 255, 0.1);"></video>
+                  <video v-if="frame.generatedVideoUrl" :src="frame.generatedVideoUrl" controls style="width: 100%; max-height: 240px; border-radius: 8px; margin-top: 8px; border: 1px solid rgba(255, 255, 255, 0.1);" preload="metadata"></video>
                   <div v-else class="video-placeholder-empty">
                      <el-icon class="icon"><Film /></el-icon>
                      <span>暂无视频结果</span>
                   </div>
               </div>
-              <div class="prompt-section prompt-en">
+               <div class="prompt-section prompt-en" @click.stop>
                 <div class="prompt-header">
                    <span>模型提示词 (EN)</span>
                    <div class="actions">
@@ -159,7 +177,7 @@
                 <el-input v-else v-model="frame.i2vPromptEn" type="textarea" :rows="6" class="prompt-edit-area"></el-input>
               </div>
 
-              <div v-if="frame.i2vPromptZh || frame.editing" class="prompt-section prompt-zh">
+              <div v-if="frame.i2vPromptZh || frame.editing" class="prompt-section prompt-zh" @click.stop>
                 <div class="prompt-header">
                    <span>中文对照</span>
                    <el-button v-if="!frame.editing" link type="primary" @click="copyText(frame.i2vPromptZh)">复制中文</el-button>
@@ -169,7 +187,7 @@
               </div>
 
               <!-- 音频管理模块 -->
-              <div class="audio-management glass-card">
+              <div class="audio-management glass-card" @click.stop>
                  <div class="section-header">
                     <span class="label"><el-icon><Microphone /></el-icon> 音频 & 口型同步</span>
                     <el-button v-if="frame.audioUrl" type="primary" link @click="openAudioTrimDialog(frame)">手动裁剪</el-button>
@@ -206,8 +224,14 @@
     </div>
 
     <!-- 上传对话框 -->
-    <el-dialog v-model="showUploadDialog" title="发起新的视频复刻流水线" width="600px" append-to-body>
-      <el-form :model="uploadForm" label-position="top" class="custom-form">
+    <el-dialog v-model="showUploadDialog" title="发起新的视频复刻流水线" width="90%" style="max-width: 600px;" append-to-body>
+      <el-form :model="uploadForm" label-position="top" class="custom-form" @submit.native.prevent>
+        <el-form-item label="加载配置预设">
+          <el-select v-model="selectedPresetId" placeholder="选择已有预设进行加载" clearable @change="onPresetChange" style="width: 100%">
+            <el-option v-for="item in presetList" :key="item.configId" :label="item.configName" :value="item.configId" />
+          </el-select>
+        </el-form-item>
+
         <el-form-item label="原始对标视频" required>
            <el-upload
             class="video-uploader"
@@ -222,14 +246,14 @@
         </el-form-item>
         
         <el-row :gutter="20">
-          <el-col :span="12">
+          <el-col :xs="24" :sm="12">
             <el-form-item label="人物参考图">
                <el-upload action="#" list-type="picture-card" :auto-upload="false" multiple :on-change="handleCharChange">
                   <el-icon><Plus /></el-icon>
                </el-upload>
             </el-form-item>
           </el-col>
-          <el-col :span="12">
+          <el-col :xs="24" :sm="12">
             <el-form-item label="商品参考图">
                <el-upload action="#" list-type="picture-card" :auto-upload="false" multiple :on-change="handleProdChange">
                   <el-icon><Plus /></el-icon>
@@ -240,12 +264,12 @@
 
         <el-divider content-position="left">产品背景配置 (选填)</el-divider>
         <el-row :gutter="20">
-          <el-col :span="12">
+          <el-col :xs="24" :sm="12">
             <el-form-item label="品牌/产品名称">
               <el-input v-model="uploadForm.brandOrProductName" placeholder="[填写]" />
             </el-form-item>
           </el-col>
-          <el-col :span="12">
+          <el-col :xs="24" :sm="12">
             <el-form-item label="目标用户群体">
               <el-input v-model="uploadForm.targetAudience" placeholder="[填写]" />
             </el-form-item>
@@ -281,18 +305,33 @@
             <el-radio-button label="local">本地全自动监听队列 (免费，依赖客户端节点)</el-radio-button>
           </el-radio-group>
         </el-form-item>
+
+        <el-divider content-position="left">保存为新预设 (可选)</el-divider>
+        <el-row :gutter="20">
+          <el-col :span="6">
+            <el-form-item label="是否保存">
+              <el-switch v-model="saveAsPreset" active-text="是" inactive-text="否" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="18">
+            <el-form-item v-if="saveAsPreset" label="预设名称" required>
+              <el-input v-model="presetName" placeholder="输入预设名称便于下次查找" />
+            </el-form-item>
+          </el-col>
+        </el-row>
       </el-form>
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="showUploadDialog = false">取消</el-button>
+          <el-button type="info" plain :loading="savingPreset" @click="handleSavePresetOnly">仅保存当前配置为预设</el-button>
           <el-button type="primary" :loading="uploading" @click="submitTask">开启流水线</el-button>
         </span>
       </template>
     </el-dialog>
 
     <!-- 洗图工作台对话框 -->
-    <el-dialog v-model="showWashDialog" title="洗图工作台 (Nano Banana)" width="650px" append-to-body>
-      <el-form :model="washForm" label-position="top" class="custom-form">
+    <el-dialog v-model="showWashDialog" title="洗图工作台 (Nano Banana)" width="90%" style="max-width: 650px;" append-to-body>
+      <el-form :model="washForm" label-position="top" class="custom-form" @submit.native.prevent>
         <el-form-item label="任务执行模式">
           <el-radio-group v-model="washForm.execMode">
             <el-radio label="api">API 模式 (扣费极速)</el-radio>
@@ -309,8 +348,16 @@
           </el-radio-group>
         </el-form-item>
         
-        <el-form-item label="自定义提示词 (可选)">
+        <el-form-item label="自定义提示词 (从模板加载或手动输入)">
+          <div v-if="washPromptTemplates.length > 0" class="prompt-tag-list">
+             <el-tag v-for="tag in washPromptTemplates" :key="tag.promptId" class="p-tag" @click="washForm.customPrompt = tag.template" effect="plain" closable @close="handleDeleteWashPrompt(tag)">
+                {{ tag.template.slice(0, 15) }}{{ tag.template.length > 15 ? '...' : '' }}
+             </el-tag>
+          </div>
           <el-input v-model="washForm.customPrompt" type="textarea" :rows="3" placeholder="追加特定的洗图要求，例如改变风格、修改服装等..." />
+          <div style="margin-top: 8px; display: flex; justify-content: flex-end;">
+            <el-button type="success" size="small" link icon="Plus" @click="handleSaveWashPrompt" :disabled="!washForm.customPrompt">将其保存为提示词模板</el-button>
+          </div>
         </el-form-item>
 
         <el-form-item label="素材库参考图 (可选，点击选择，可多选)">
@@ -336,14 +383,14 @@
     </el-dialog>
 
     <!-- 视频全屏预览对话框 -->
-    <el-dialog v-model="showPreviewDialog" title="原视频预览" width="700px" append-to-body destroy-on-close>
+    <el-dialog v-model="showPreviewDialog" title="原视频预览" width="90%" style="max-width: 700px;" append-to-body destroy-on-close>
       <div v-if="previewVideoUrl" style="display:flex; justify-content:center; align-items:center;">
         <video :src="previewVideoUrl" controls autoplay style="max-width: 100%; max-height: 60vh; border-radius: 8px;"></video>
       </div>
     </el-dialog>
 
     <!-- 视频剪辑对话框 -->
-    <el-dialog v-model="showClipDialog" title="视频高级可视剪辑" width="850px" append-to-body destroy-on-close>
+    <el-dialog v-model="showClipDialog" title="视频高级可视剪辑" width="90%" style="max-width: 850px;" append-to-body destroy-on-close>
       <div v-if="clipVideoUrl" style="margin-bottom: 20px; text-align: center;">
         <video ref="clipVideoRef" :src="clipVideoUrl" style="width: 100%; max-height: 450px; border-radius: 8px; background: #000; cursor: pointer;" @loadedmetadata="onVideoLoaded" @click="toggleClipPlay"></video>
         <div style="margin-top: 10px;">
@@ -386,7 +433,7 @@
     </el-dialog>
 
     <!-- 音频裁剪对话框 -->
-    <el-dialog v-model="showAudioTrimDialog" title="音频精准裁剪" width="600px" append-to-body destroy-on-close>
+    <el-dialog v-model="showAudioTrimDialog" title="音频精准裁剪" width="90%" style="max-width: 600px;" append-to-body destroy-on-close>
        <div v-if="trimAudioUrl" style="text-align: center; margin-bottom: 20px;">
           <audio ref="trimAudioRef" :src="trimAudioUrl" controls style="width: 100%;" @loadedmetadata="onAudioLoaded"></audio>
        </div>
@@ -408,7 +455,7 @@
     </el-dialog>
 
     <!-- 关键帧手动截取对话框 -->
-    <el-dialog v-model="showCaptureDialog" title="手动捕捉关键帧" width="800px" append-to-body destroy-on-close>
+    <el-dialog v-model="showCaptureDialog" title="手动捕捉关键帧" width="90%" style="max-width: 800px;" append-to-body destroy-on-close>
       <div v-if="captureVideoUrl" style="margin-bottom: 20px; text-align: center;">
         <video ref="captureVideoRef" :src="captureVideoUrl" style="width: 100%; max-height: 450px; border-radius: 8px; background: #000; cursor: pointer;" @loadedmetadata="onCaptureVideoLoaded" @click="toggleCapturePlay" @timeupdate="onCaptureTimeUpdate"></video>
         <div style="margin-top: 10px; display: flex; justify-content: center; align-items: center; gap: 15px;">
@@ -433,25 +480,53 @@
         </span>
       </template>
     </el-dialog>
+
+    <!-- 悬浮刷新按钮 -->
+    <div v-if="currentTask" class="floating-refresh-btn" @click="handleManualRefresh" title="刷新当前任务详情">
+      <el-icon :class="{ 'is-loading': loadingFrames }"><Refresh /></el-icon>
+      <span class="btn-text">刷新</span>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, computed } from 'vue'
-import { Plus, VideoCamera, Calendar, Right, Check, VideoPlay, Delete, Film, Download, Microphone, Upload, Edit } from '@element-plus/icons-vue'
-import { listVideoReproduce, createVideoReproduce, getFrames, generateAllVideos, washImage, washAllImages, undoWash, generateVideo, undoVideo, delVideoReproduce, clipVideo, mergeVideos, bindAudio, autoTrimAudio, manualTrimAudio, syncAudioToVideo, updatePrompts, recaptureFrame, uploadGeneratedVideo, downloadAudio } from '@/api/business/videoReproduce'
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import { Plus, VideoCamera, Calendar, Right, Check, VideoPlay, Delete, Film, Download, Microphone, Upload, Edit, Refresh } from '@element-plus/icons-vue'
+import { listVideoReproduce, createVideoReproduce, getFrames, generateAllVideos, washImage, washAllImages, undoWash, generateVideo, undoVideo, delVideoReproduce, clipVideo, mergeVideos, bindAudio, autoTrimAudio, manualTrimAudio, syncAudioToVideo, updatePrompts, recaptureFrame, uploadGeneratedVideo, downloadAudio, delFrame, delGeneratedVideo, delPolishedImage, delOriginalImage, uploadOriginalImage } from '@/api/business/videoReproduce'
+import { listReproduceConfig, addReproduceConfig } from '@/api/business/reproduceConfig'
+import { listPromptTemplate, addPromptTemplate, delPromptTemplate } from '@/api/business/promptTemplate'
+import request from '@/utils/request'
 import { listMaterial } from '@/api/business/material'
 import { addMaterial } from '@/api/business/material'
 import { parseTime } from "@/utils/ruoyi";
 import { getToken } from "@/utils/auth";
 import { ElMessage, ElMessageBox, ElLoading } from 'element-plus'
+import { debounce } from '@/utils/index'
 
+// 状态持久化常量
+const STORAGE_KEY_TASK_ID = 'video_repro_last_task_id'
+const STORAGE_KEY_SCROLL_Y = 'video_repro_last_scroll_y'
+
+const router = useRouter()
+const route = useRoute()
 const taskList = ref([])
 const currentTask = ref(null)
 const frames = ref([])
 const loadingFrames = ref(false)
 const showUploadDialog = ref(false)
 const uploading = ref(false)
+const selectedGUs = ref([]) // 存储选中的 frameId，按选择顺序排
+
+const toggleSelection = (id) => {
+    const frameId = String(id) // 强制转为字符串，防止大数字精度丢失或类型不匹配
+    const index = selectedGUs.value.indexOf(frameId)
+    if (index > -1) {
+        selectedGUs.value.splice(index, 1)
+    } else {
+        selectedGUs.value.push(frameId)
+    }
+}
 
 // 视频预览状态
 const showPreviewDialog = ref(false)
@@ -590,6 +665,28 @@ const handleGeneratedVideoUpload = async (frame, file) => {
     }
 }
 
+// 手动上传原始图片逻辑
+const handleOriginalImageUpload = async (frame, file) => {
+    if (!file || !file.raw) return
+    
+    const loading = ElLoading.service({
+        lock: true,
+        text: '正在上传图片并替换原始截帧...',
+        background: 'rgba(0, 0, 0, 0.7)',
+    })
+    
+    try {
+        await uploadOriginalImage(frame.frameId, file.raw)
+        ElMessage.success('图片已成功替换')
+        refreshFrames()
+    } catch (e) {
+        console.error(e)
+        ElMessage.error('图片上传失败')
+    } finally {
+        loading.close()
+    }
+}
+
 // 下载视频中的音频
 const downloadFrameAudio = async (frame) => {
     const loading = ElLoading.service({
@@ -668,6 +765,36 @@ const washForm = ref({
   customPrompt: ''
 })
 
+const washPromptTemplates = ref([])
+const fetchWashPrompts = async () => {
+    // 假设用类别 11 作为洗图专用提示词
+    const res = await listPromptTemplate({ templateType: 11, pageNum: 1, pageSize: 50 })
+    washPromptTemplates.value = res.rows
+}
+
+const handleSaveWashPrompt = async () => {
+    if (!washForm.value.customPrompt) return
+    try {
+        await addPromptTemplate({
+            template: washForm.value.customPrompt,
+            templateType: 11,
+            status: 1,
+            remark: '洗图工作台保存'
+        })
+        ElMessage.success('已保存到提示词模板')
+        fetchWashPrompts()
+    } catch (e) {}
+}
+
+const handleDeleteWashPrompt = async (tag) => {
+    try {
+        await ElMessageBox.confirm('确定要删除此提示词模板吗？', '警告', { type: 'warning' })
+        await delPromptTemplate(tag.promptId)
+        ElMessage.success('已删除')
+        fetchWashPrompts()
+    } catch (e) {}
+}
+
 const materialList = ref([])
 const loadingMaterials = ref(false)
 const materialSelection = ref([]) // 选中的素材 url 数组
@@ -686,17 +813,75 @@ const uploadForm = ref({
   execMode: 'api'
 })
 
+// 预设相关状态
+const presetList = ref([])
+const selectedPresetId = ref(null)
+const saveAsPreset = ref(false)
+const presetName = ref('')
+
+const fetchPresets = async () => {
+    const res = await listReproduceConfig({ pageNum: 1, pageSize: 100 })
+    presetList.value = res.rows
+}
+
+const onPresetChange = (configId) => {
+    if (!configId) return
+    const preset = presetList.value.find(p => p.configId === configId)
+    if (preset) {
+        try {
+            const config = JSON.parse(preset.productConfigJson)
+            uploadForm.value.brandOrProductName = config.brandName || ''
+            uploadForm.value.coreSellingPoints = config.sellingPoints || ''
+            uploadForm.value.targetAudience = config.targetAudience || ''
+            if (config.painPoints && config.painPoints.length >= 3) {
+                uploadForm.value.painPoint1 = config.painPoints[0] || ''
+                uploadForm.value.painPoint2 = config.painPoints[1] || ''
+                uploadForm.value.painPoint3 = config.painPoints[2] || ''
+            }
+            
+            // 注意：图片处理。预设存的是 URL，而 uploadForm 期望的是 File 或者预览列表
+            // 这里我们暂时简单处理，提示用户图片已加载（后续可优化 el-upload 的 initial list）
+            if (preset.charImages || preset.productImages) {
+                ElMessage.info('已加载预设文字配置，参考图片由于是跨任务重用，建议您如需更换请重新上传')
+            }
+        } catch (e) {
+            console.error('解析预设配置失败', e)
+        }
+    }
+}
+
 const getList = async () => {
     const res = await listVideoReproduce({ pageNum: 1, pageSize: 20 })
     taskList.value = res.rows
-    if (taskList.value.length > 0 && !currentTask.value) {
+    
+    // 尝试从缓存恢复选中任务
+    const savedTaskId = localStorage.getItem(STORAGE_KEY_TASK_ID)
+    if (savedTaskId && taskList.value.length > 0) {
+        const savedTask = taskList.value.find(t => t.taskId.toString() === savedTaskId)
+        if (savedTask) {
+            selectTask(savedTask)
+        } else if (!currentTask.value) {
+            selectTask(taskList.value[0])
+        }
+    } else if (taskList.value.length > 0 && !currentTask.value) {
         selectTask(taskList.value[0])
     }
 }
 
 const selectTask = (task) => {
     currentTask.value = task
+    selectedGUs.value = [] // 切换任务时清空选择
     refreshFrames()
+}
+
+const handleManualRefresh = async () => {
+    if (loadingFrames.value) return
+    ElMessage.info('正在同步最新详情...')
+    await getList()
+    if (currentTask.value) {
+        await refreshFrames()
+    }
+    ElMessage.success('详情已更新')
 }
 
 const refreshFrames = async () => {
@@ -769,6 +954,78 @@ const handleVideoChange = (file) => { uploadForm.value.video = file.raw }
 const handleCharChange = (file, list) => { uploadForm.value.charImages = list.map(i => i.raw) }
 const handleProdChange = (file, list) => { uploadForm.value.productImages = list.map(i => i.raw) }
 
+const savingPreset = ref(false)
+
+// 串行上传多文件并返回 URL 列表
+const uploadFilesHelper = async (files) => {
+    if (!files || files.length === 0) return []
+    const urls = []
+    for (const file of files) {
+        // 如果是 File 对象则上传，如果是字符串 URL (加载预设带出来的) 则直接保留
+        if (typeof file === 'string') {
+            urls.push(file)
+            continue
+        }
+        const formData = new FormData()
+        formData.append('file', file)
+        const res = await request({
+            url: '/resource/oss/upload',
+            method: 'post',
+            data: formData,
+            headers: { 'Content-Type': 'multipart/form-data' }
+        })
+        urls.push(res.data.url)
+    }
+    return urls
+}
+
+const handleSavePresetOnly = async () => {
+    if (!presetName.value) {
+        if (uploadForm.value.brandOrProductName) {
+            presetName.value = uploadForm.value.brandOrProductName + ' - 复刻预设'
+        } else {
+            return ElMessage.warning('请输入预设名称或填写品牌名称以便自动命名')
+        }
+    }
+
+    savingPreset.value = true
+    try {
+        // 1. 上传图片获取 URL
+        const charUrls = await uploadFilesHelper(uploadForm.value.charImages)
+        const prodUrls = await uploadFilesHelper(uploadForm.value.productImages)
+
+        // 2. 组装产品配置 JSON
+        const configObj = {
+            "brandName": uploadForm.value.brandOrProductName,
+            "sellingPoints": uploadForm.value.coreSellingPoints,
+            "targetAudience": uploadForm.value.targetAudience,
+            "painPoints": [
+                uploadForm.value.painPoint1,
+                uploadForm.value.painPoint2,
+                uploadForm.value.painPoint3
+            ]
+        }
+
+        // 3. 调用 API 保存
+        await addReproduceConfig({
+            configName: presetName.value,
+            productConfigJson: JSON.stringify(configObj),
+            charImages: JSON.stringify(charUrls),
+            productImages: JSON.stringify(prodUrls),
+            remark: '手动独立保存的预设'
+        })
+
+        ElMessage.success('配置预设已独立保存成功')
+        fetchPresets()
+        // 不关闭弹窗，方便用户继续开启流水线或修改
+        saveAsPreset.value = false 
+    } catch (e) {
+        console.error(e)
+    } finally {
+        savingPreset.value = false
+    }
+}
+
 const submitTask = async () => {
     if (!uploadForm.value.video) return ElMessage.warning('请选择对标视频')
     
@@ -794,10 +1051,32 @@ const submitTask = async () => {
         uploadForm.value.charImages.forEach(i => formData.append('charImages', i))
         uploadForm.value.productImages.forEach(i => formData.append('productImages', i))
         
-        await createVideoReproduce(formData)
+        const taskRes = await createVideoReproduce(formData)
+        const task = taskRes.data
+        
+        // 如果勾选了保存预设
+        if (saveAsPreset.value && presetName.value) {
+            try {
+                await addReproduceConfig({
+                    configName: presetName.value,
+                    productConfigJson: uploadForm.value.productConfigJson,
+                    charImages: task.charImages,
+                    productImages: task.productImages,
+                    remark: '从任务 ' + (task.taskId || '').toString().slice(-6) + ' 导出'
+                })
+                ElMessage.success('完整配置已保存为预设')
+            } catch (e) {
+                console.error('保存预设失败', e)
+            }
+        }
+
         ElMessage.success('任务启动成功')
         showUploadDialog.value = false
+        saveAsPreset.value = false
+        presetName.value = ''
+        selectedPresetId.value = null
         getList()
+        fetchPresets()
     } finally {
         uploading.value = false
     }
@@ -807,8 +1086,41 @@ const playVideo = (e) => e.target.play()
 const pauseVideo = (e) => e.target.pause()
 
 const copyText = (text) => {
-    navigator.clipboard.writeText(text)
-    ElMessage.success('提示词已复制到剪贴板')
+    // 优先尝试现代 API
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(() => {
+            ElMessage.success('提示词已复制到剪贴板')
+        }).catch(() => {
+            copyFallback(text)
+        })
+    } else {
+        copyFallback(text)
+    }
+}
+
+const copyFallback = (text) => {
+    const textArea = document.createElement("textarea")
+    textArea.value = text
+    // 隐藏 textarea
+    textArea.style.position = "fixed"
+    textArea.style.left = "-9999px"
+    textArea.style.top = "0"
+    textArea.setAttribute('readonly', '') // 防止移动端唤起键盘
+    document.body.appendChild(textArea)
+    textArea.select()
+    // 针对 iOS 的选择兼容
+    textArea.setSelectionRange(0, 99999)
+    try {
+        const successful = document.execCommand('copy')
+        if (successful) {
+            ElMessage.success('提示词已复制到剪贴板')
+        } else {
+            ElMessage.error('复制失败，请长按文本手动复制')
+        }
+    } catch (err) {
+        ElMessage.error('复制失败，请长按文本手动复制')
+    }
+    document.body.removeChild(textArea)
 }
 
 const handleBatchGenerate = async (execMode = 'api') => {
@@ -877,6 +1189,7 @@ const openWashDialog = (type, frameId = null) => {
     if (materialList.value.length === 0) {
         fetchMaterials()
     }
+    fetchWashPrompts()
 }
 
 // 提交洗图请求
@@ -906,9 +1219,11 @@ const submitWash = async () => {
 }
 
 const doUndoWash = async (frameId) => {
-    await undoWash(frameId)
-    ElMessage.success('已撤回最新洗图')
-    refreshFrames()
+    try {
+        await undoWash(frameId)
+        ElMessage.success('已撤回最新洗图')
+        refreshFrames()
+    } catch (e) {}
 }
 
 const doGenerateVideo = async (frameId, execMode = 'api') => {
@@ -928,21 +1243,79 @@ const doGenerateVideo = async (frameId, execMode = 'api') => {
 }
 
 const doUndoVideo = async (frameId) => {
-    await undoVideo(frameId)
-    ElMessage.success('已撤回最新视频')
-    refreshFrames()
+    try {
+        await undoVideo(frameId)
+        ElMessage.success('已撤回最新视频')
+        refreshFrames()
+    } catch (e) {}
+}
+
+const handleDelFrame = async (frameId) => {
+    try {
+        await ElMessageBox.confirm('确定要彻底删除这个制作单元吗？此操作不可恢复。', '警告', {
+            type: 'warning',
+            confirmButtonText: '确定删除',
+            confirmButtonClass: 'el-button--danger'
+        })
+        await delFrame(frameId)
+        ElMessage.success('已成功删除该制作单元')
+        refreshFrames()
+    } catch (e) {}
+}
+
+const handleDelVideo = async (frameId) => {
+    try {
+        await ElMessageBox.confirm('确定要删除已生成的视频吗？', '确认清理', {
+            type: 'warning',
+            confirmButtonText: '确定删除',
+        })
+        await delGeneratedVideo(frameId)
+        ElMessage.success('视频清理已完成')
+        refreshFrames()
+    } catch (e) {}
+}
+
+const handleDelWash = async (frameId) => {
+    try {
+        await ElMessageBox.confirm('确定要删除 AI 洗图效果吗？此操作将重置该单元的状态。', '确认清理', {
+            type: 'warning',
+            confirmButtonText: '确定删除',
+        })
+        await delPolishedImage(frameId)
+        ElMessage.success('洗图效果已清除')
+        refreshFrames()
+    } catch (e) {}
+}
+
+const handleDelOriginalImage = async (frameId) => {
+    try {
+        await ElMessageBox.confirm('确定要彻底删除该原始截帧图片吗？', '确认清理', {
+            type: 'warning',
+            confirmButtonText: '确定删除',
+        })
+        await delOriginalImage(frameId)
+        ElMessage.success('原始截帧已清理')
+        refreshFrames()
+    } catch (e) {}
 }
 
 const merging = ref(false)
 const handleMergeVideos = async () => {
+    const ids = selectedGUs.value.map(id => String(id))
+    const hasSelection = ids.length > 0
+    const tip = hasSelection 
+        ? `确定按照您选择的顺序（共 ${ids.length} 个单元）合成视频吗？`
+        : '确定要按照单元默认顺序合成全片视频吗？这将包含该任务下所有已生成的视频片段。'
+    
     try {
-        await ElMessageBox.confirm('确定要按照单元顺序合成全片视频吗？这将包含所有已生成的视频片段。', '合成确认', {
+        await ElMessageBox.confirm(tip, '合成确认', {
             confirmButtonText: '开始合成',
             cancelButtonText: '取消',
             type: 'info'
         })
         merging.value = true
-        await mergeVideos(currentTask.value.taskId)
+        // 传递 plain array 确保 axios 正确序列化
+        await mergeVideos(currentTask.value.taskId, hasSelection ? ids : null)
         ElMessage.success('合成任务已提交，请稍后刷新查看结果')
         // 自动刷新以便获取新出来的 combinedVideoUrl
         setTimeout(() => getList(), 3000)
@@ -1045,23 +1418,95 @@ const getStatusLabel = (status) => {
   return map[status] || '未知状态'
 }
 
-let autoRefreshTimer = null
+// 手动刷新逻辑已保留 handleManualRefresh 函数
 
-onMounted(() => {
-    getList()
-    // 每 1 分钟自动刷新一次任务列表和当前截帧详情，保持页面状态最新
-    autoRefreshTimer = setInterval(() => {
-        getList()
-        if (currentTask.value) {
-            refreshFrames()
+// 移动端保活逻辑：通过 Wake Lock 和 循环播放一段静音音频，防止安卓 Chrome 杀死后台标签页
+const wakeLock = ref(null)
+const silentAudio = ref(null)
+
+const initKeepAlive = async () => {
+    // 1. 尝试申请 Wake Lock (防止屏幕熄灭导致进程挂起)
+    if ('wakeLock' in navigator) {
+        try {
+            wakeLock.value = await navigator.wakeLock.request('screen')
+            console.log('Wake Lock is active')
+        } catch (err) {
+            console.warn('Wake Lock request failed:', err)
         }
-    }, 60000)
+    }
+
+    // 2. 循环播放一段极短的静音音频 (防止浏览器在后台回收页面资源)
+    // 这是一个 0.1秒的静音 base64 mp3
+    const silentMp3 = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA='
+    if (!silentAudio.value) {
+        silentAudio.value = new Audio(silentMp3)
+        silentAudio.value.loop = true
+    }
+    
+    try {
+        await silentAudio.value.play()
+        console.log('Silent audio keep-alive active')
+    } catch (err) {
+        // 自动播放可能受限，需要用户点击页面后触发
+        console.warn('Silent audio play failed, waiting for user interaction')
+        const startOnInteraction = () => {
+            silentAudio.value.play()
+            document.removeEventListener('click', startOnInteraction)
+        }
+        document.addEventListener('click', startOnInteraction)
+    }
+}
+
+// 监听滚动并保存 (使用防抖)
+const handleScroll = debounce(() => {
+    localStorage.setItem(STORAGE_KEY_SCROLL_Y, window.scrollY.toString())
+}, 500)
+
+onMounted(async () => {
+    await getList()
+    await fetchPresets()
+
+    // 检查是否有预设 ID 传入
+    if (route.query.presetId) {
+        selectedPresetId.value = parseInt(route.query.presetId)
+        onPresetChange(selectedPresetId.value)
+        showUploadDialog.value = true
+        // 清除 query 参数，防止刷新重复弹窗
+        router.replace({ path: route.path, query: {} })
+    }
+
+    // 尝试开启保活
+    initKeepAlive()
+
+    // 恢复滚动位置并开启滚动监听
+    window.addEventListener('scroll', handleScroll)
+    setTimeout(() => {
+        const savedScrollY = localStorage.getItem(STORAGE_KEY_SCROLL_Y)
+        if (savedScrollY) {
+            window.scrollTo({
+                top: parseInt(savedScrollY),
+                behavior: 'smooth'
+            })
+        }
+    }, 500) // 给予一定的渲染缓冲时间
 })
 
 onUnmounted(() => {
-    if (autoRefreshTimer) {
-        clearInterval(autoRefreshTimer)
-        autoRefreshTimer = null
+    window.removeEventListener('scroll', handleScroll)
+    if (wakeLock.value) {
+        wakeLock.value.release()
+        wakeLock.value = null
+    }
+    if (silentAudio.value) {
+        silentAudio.value.pause()
+        silentAudio.value = null
+    }
+})
+
+// 监听任务切换并保存到本地
+watch(() => currentTask.value?.taskId, (newId) => {
+    if (newId) {
+        localStorage.setItem(STORAGE_KEY_TASK_ID, newId.toString())
     }
 })
 </script>
@@ -1071,6 +1516,7 @@ onUnmounted(() => {
   padding: 20px;
   background-color: var(--el-bg-color-page);
   min-height: calc(100vh - 84px);
+  overscroll-behavior: none;
 }
 
 .banner-card {
@@ -1099,9 +1545,101 @@ onUnmounted(() => {
   align-items: center;
 }
 
+.selection-tip {
+  font-size: 14px;
+  color: var(--el-color-primary);
+  font-weight: bold;
+  margin-right: 15px;
+  background: var(--el-color-primary-light-9);
+  padding: 4px 12px;
+  border-radius: 4px;
+}
+
 .main-content {
   display: flex;
   gap: 20px;
+}
+
+/* Mobile Responsive Adjustments */
+@media (max-width: 768px) {
+  .video-reproduce-container {
+    padding: 10px;
+  }
+
+  .banner-card :deep(.el-card__body) {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+
+  .main-content {
+    flex-direction: column;
+  }
+
+  .task-grid {
+    width: 100%;
+    flex-direction: row;
+    overflow-x: auto;
+    padding-bottom: 10px;
+    padding-right: 0;
+  }
+
+  .task-card {
+    min-width: 200px;
+    flex-shrink: 0;
+  }
+
+  .detail-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+
+  .detail-header .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .comparison-view {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .arrow-icon {
+    transform: rotate(90deg);
+    margin: 5px 0;
+  }
+
+  .lock-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .frame-actions, .audio-actions {
+    flex-wrap: wrap;
+  }
+
+  .frame-card {
+    padding: 15px;
+  }
+
+  .workflow-steps :deep(.el-step__description) {
+    display: none;
+  }
+
+  .final-video {
+    max-height: 300px;
+  }
+
+  .img-box .el-image {
+    min-height: 120px;
+  }
+
+  .frame-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 5px;
+  }
 }
 
 .task-grid {
@@ -1363,9 +1901,35 @@ onUnmounted(() => {
 
 .frame-card {
   padding: 24px;
-  border: 1px solid var(--el-border-color-light);
+  border: 2px solid var(--el-border-color-light);
   border-radius: 8px;
   background-color: var(--el-bg-color);
+  transition: all 0.3s ease;
+  cursor: pointer;
+  position: relative;
+}
+
+.frame-card:hover {
+  border-color: var(--el-color-primary-light-7);
+}
+
+.frame-card.is-selected {
+  border-color: var(--el-color-primary);
+  background-color: var(--el-color-primary-light-9);
+  box-shadow: 0 0 15px rgba(59, 130, 246, 0.1);
+}
+
+.selection-order {
+  width: 20px;
+  height: 20px;
+  background: var(--el-color-primary);
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: bold;
 }
 
 .frame-header {
@@ -1416,7 +1980,9 @@ onUnmounted(() => {
 .img-box .el-image {
   border-radius: 6px;
   width: 100%;
-  height: 240px;
+  aspect-ratio: 16 / 9;
+  height: auto;
+  min-height: 180px;
   display: block;
 }
 
@@ -1546,5 +2112,79 @@ onUnmounted(() => {
 .video-placeholder-empty .icon {
   font-size: 32px;
   opacity: 0.5;
+}
+
+.prompt-tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.p-tag {
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.p-tag:hover {
+  background-color: var(--el-color-primary-light-8);
+  border-color: var(--el-color-primary);
+}
+
+/* 悬浮刷新按钮样式 */
+.floating-refresh-btn {
+  position: fixed;
+  right: 30px;
+  bottom: 40px;
+  width: 56px;
+  height: 56px;
+  background: linear-gradient(135deg, #6366f1 0%, #3b82f6 100%);
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  z-index: 2000;
+}
+
+.floating-refresh-btn:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.6);
+}
+
+.floating-refresh-btn:active {
+  transform: scale(0.95);
+}
+
+.floating-refresh-btn .el-icon {
+  font-size: 22px;
+}
+
+.floating-refresh-btn .btn-text {
+  font-size: 10px;
+  margin-top: 2px;
+  font-weight: bold;
+}
+
+.is-loading {
+  animation: rotating 2s linear infinite;
+}
+
+@keyframes rotating {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 768px) {
+  .floating-refresh-btn {
+    right: 20px;
+    bottom: 30px;
+    width: 50px;
+    height: 50px;
+  }
 }
 </style>

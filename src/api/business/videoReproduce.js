@@ -107,12 +107,45 @@ export function clipVideo(frameId, removeRanges) {
 }
 
 // 合成全片视频
-export function mergeVideos(taskId) {
+export function mergeVideos(taskId, frameIds) {
   return request({
     url: '/business/videoReproduce/mergeVideos/' + taskId,
-    method: 'post'
+    method: 'post',
+    data: { frameIds }
   })
-}// 为单帧绑定音频
+}// 删除制作单元
+export function delFrame(frameId) {
+  return request({
+    url: '/business/videoReproduce/frame/' + frameId,
+    method: 'delete'
+  })
+}
+
+// 删除生成的视频
+export function delGeneratedVideo(frameId) {
+  return request({
+    url: '/business/videoReproduce/frame/video/' + frameId,
+    method: 'delete'
+  })
+}
+
+// 删除 AI 洗图图片
+export function delPolishedImage(frameId) {
+  return request({
+    url: '/business/videoReproduce/frame/wash/' + frameId,
+    method: 'delete'
+  })
+}
+
+// 删除原始图片
+export function delOriginalImage(frameId) {
+  return request({
+    url: '/business/videoReproduce/frame/image/' + frameId,
+    method: 'delete'
+  })
+}
+
+// 为单帧绑定音频
 export function bindAudio(frameId, audioFile) {
   const formData = new FormData()
   formData.append('audio', audioFile)
@@ -187,3 +220,16 @@ export function downloadAudio(frameId) {
     responseType: 'blob'
   })
 }
+
+// 手动上传原始图片
+export function uploadOriginalImage(frameId, imageFile) {
+  const formData = new FormData()
+  formData.append('image', imageFile)
+  return request({
+    url: '/business/videoReproduce/uploadOriginalImage/' + frameId,
+    method: 'post',
+    data: formData,
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
+}
+

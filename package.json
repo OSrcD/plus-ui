@@ -8,6 +8,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite serve --mode development",
+    "prod": "vite serve --mode production",
     "build:prod": "vite build --mode production",
     "build:dev": "vite build --mode development",
     "preview": "vite preview",

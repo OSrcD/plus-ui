@@ -22,6 +22,9 @@
             <el-form-item label="小红书正常评论计数" prop="xhsNormalCount">
               <el-input v-model="queryParams.xhsNormalCount" placeholder="请输入小红书正常评论计数" clearable @keyup.enter="handleQuery" />
             </el-form-item>
+            <el-form-item label="小红书折叠计数" prop="xhsFoldCount">
+              <el-input v-model="queryParams.xhsFoldCount" placeholder="请输入小红书折叠计数" clearable @keyup.enter="handleQuery" />
+            </el-form-item>
             <el-form-item>
               <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
               <el-button icon="Refresh" @click="resetQuery">重置</el-button>
@@ -67,6 +70,12 @@
           <template #default="scope">
             <el-tag type="danger" effect="dark" v-if="scope.row.xhsInterceptCount > 0">{{ scope.row.xhsInterceptCount }}</el-tag>
             <span v-else>{{ scope.row.xhsInterceptCount }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="小红书折叠计数" align="center" prop="xhsFoldCount">
+          <template #default="scope">
+            <el-tag type="warning" effect="dark" v-if="scope.row.xhsFoldCount > 0">{{ scope.row.xhsFoldCount }}</el-tag>
+            <span v-else>{{ scope.row.xhsFoldCount }}</span>
           </template>
         </el-table-column>
         <el-table-column label="备注" align="center" prop="remark" />
@@ -115,6 +124,9 @@
         <el-form-item label="小红书正常评论计数" prop="xhsNormalCount">
           <el-input-number v-model="form.xhsNormalCount" placeholder="请输入小红书正常评论计数" />
         </el-form-item>
+        <el-form-item label="小红书折叠计数" prop="xhsFoldCount">
+          <el-input-number v-model="form.xhsFoldCount" placeholder="请输入小红书折叠计数" />
+        </el-form-item>
         <el-form-item label="备注" prop="remark">
           <el-input v-model="form.remark" placeholder="请输入备注" />
         </el-form-item>
@@ -161,6 +173,7 @@ const initFormData: PromptCommentForm = {
   remark: undefined,
   xhsInterceptCount: undefined,
   xhsNormalCount: undefined,
+  xhsFoldCount: undefined,
 }
 const data = reactive<PageData<PromptCommentForm, PromptCommentQuery>>({
   form: {...initFormData},
@@ -173,6 +186,7 @@ const data = reactive<PageData<PromptCommentForm, PromptCommentQuery>>({
     commentContent: undefined,
     xhsInterceptCount: undefined,
     xhsNormalCount: undefined,
+    xhsFoldCount: undefined,
     params: {
     }
   },
